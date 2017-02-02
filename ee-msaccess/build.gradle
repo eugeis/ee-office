@@ -1,6 +1,0 @@
-dependencies {
-    compile project(':ee-common')
-    compile 'com.healthmarketscience.jackcess:jackcess:2.1.4'
-
-    testCompile project(':ee-dsl_data')
-}

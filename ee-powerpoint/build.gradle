@@ -1,7 +1,0 @@
-dependencies {
-    compile project(':ee-common')
-    compile project(':ee-dsl_data')
-	compile project(':ee-slides_json')
-
-    compile 'org.apache.poi:poi-ooxml:3.13'
-}
