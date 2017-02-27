@@ -4,6 +4,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import ee.common.ext.exists
 import ee.common.ext.isWindows
 import ee.slides.Presentation
+import ee.slides.aggregate
 import ee.slides.extractPicturesTo
 import ee.slides.html.toCss
 import ee.slides.html.toCssNamesAll
@@ -32,15 +33,17 @@ private fun generate(presentation: Presentation, target: Path) {
 }
 
 private fun loadOrParseToJson(pptxPath: Path, target: Path): Presentation {
-    val jsonFile = pptxPath.resolve("slides.json")
+    val jsonFile = pptxPath.resolve("taufe_slides.json")
     val mapper = mapper()
-    val presentation: Presentation
+    var presentation: Presentation
     if (!jsonFile.exists()) {
-        presentation = PowerPoint.parseFilesAsTopics(pptxPath, "Ekklesiologie")
+        presentation = PowerPoint.parseFilesAsTopics(pptxPath, "Wassertaufe")
         presentation.extractPicturesTo(target)
         mapper.writeValue(jsonFile.toFile(), presentation)
     } else {
         presentation = mapper.readValue(jsonFile.toFile())
+        //presentation = presentation.aggregate()
+        //mapper.writeValue(pptxPath.resolve("taufe_slides_aggregated.json").toFile(), presentation)
     }
     return presentation
 }

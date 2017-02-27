@@ -1,34 +1,22 @@
 package ee.excel
 
-/*
-The MIT License (MIT)
-Copyright (c) 2016 Shinichi ARATA.
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
- */
-
 import org.apache.poi.ss.usermodel.*
+import org.slf4j.LoggerFactory
 import java.io.FileInputStream
 import java.io.IOException
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.regex.Pattern
 
+private val log = LoggerFactory.getLogger(Excel::class.java)
+private val dateParser = SimpleDateFormat("DD.MM.YYYY")
+
+
 class Excel {
+
     companion object {
         @JvmStatic
         fun open(fileName: String): Workbook {
@@ -61,6 +49,10 @@ class Excel {
                 ""
             } + ('A' + (num - first) % 26)
         }
+
+        val EMPTY_DATE = Date()
+        val EMPTY_URL = URL("http://")
+
     }
 }
 
@@ -197,18 +189,42 @@ fun Cell.toBoolean(): Boolean {
 }
 
 fun Cell.toDate(): Date {
-    when (cellType) {
-        Cell.CELL_TYPE_NUMERIC -> return dateCellValue
-        Cell.CELL_TYPE_FORMULA -> {
-            val cellValue = getFormulaCellValue(this)
-            when (cellValue.cellType) {
-                Cell.CELL_TYPE_NUMERIC -> return dateCellValue
-                else -> throw IllegalAccessException("cellはDeteに変換できません")
+    try {
+        when (cellType) {
+            Cell.CELL_TYPE_NUMERIC -> return dateCellValue
+            Cell.CELL_TYPE_FORMULA -> {
+                val cellValue = getFormulaCellValue(this)
+                when (cellValue.cellType) {
+                    Cell.CELL_TYPE_NUMERIC -> return dateCellValue
+                    else -> throw IllegalAccessException("cellはDeteに変換できません")
+                }
             }
+            Cell.CELL_TYPE_STRING -> {
+                return dateParser.parse(this.stringCellValue)
+            }
+            else -> return Excel.EMPTY_DATE
         }
-        else -> throw IllegalAccessException("cellはDateに変換できません")
+    } catch (e: Exception) {
+        log.warn("Can't parse '$this' to Date, return null.")
+        return Excel.EMPTY_DATE
     }
 }
+
+fun Cell.toUrl(): URL {
+    try {
+        val value = trim()
+        if (value.isNotBlank()) {
+            return URL(value)
+        } else {
+            return Excel.EMPTY_URL
+        }
+    } catch (e: Exception) {
+        log.warn("Can't parse '$this' to URL, return null.")
+        return Excel.EMPTY_URL
+    }
+}
+
+fun Cell.trim(): String = stringCellValue.trim()
 
 private fun getFormulaCellValue(cell: Cell): CellValue {
     val workbook = cell.sheet.workbook
