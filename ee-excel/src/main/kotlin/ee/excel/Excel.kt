@@ -224,7 +224,7 @@ fun Cell.toUrl(): URL {
     }
 }
 
-fun Cell.trim(): String = stringCellValue.trim()
+fun Cell.trim(): String = toString().trim()
 
 private fun getFormulaCellValue(cell: Cell): CellValue {
     val workbook = cell.sheet.workbook
