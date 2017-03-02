@@ -121,17 +121,20 @@ fun Cell.toStr(): String {
             }
 
         }
-        else -> throw IllegalAccessException("cellはStringに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to String, return empty.")
+            return ""
+        }
     }
 }
 
 fun Cell.toInt(): Int {
     fun stringToInt(value: String): Int {
         try {
-            // toIntだと44.5のような文字列を44に変換できないため、一度Dobuleに変換している
             return value.toDouble().toInt()
         } catch (e: NumberFormatException) {
-            throw IllegalAccessException("cellはIntに変換できません")
+            log.warn("Can't parse '$this' to Int, return 0")
+            return 0
         }
     }
 
@@ -146,7 +149,10 @@ fun Cell.toInt(): Int {
                 else -> throw IllegalAccessException("cellはIntに変換できません")
             }
         }
-        else -> throw IllegalAccessException("cellはIntに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to Int, return 0")
+            return 0
+        }
     }
 }
 
@@ -155,7 +161,8 @@ fun Cell.toDouble(): Double {
         try {
             return value.toDouble()
         } catch (e: NumberFormatException) {
-            throw IllegalAccessException("cellはDoubleに変換できません")
+            log.warn("Can't parse '$this' to Double, return 0.0")
+            return 0.0
         }
     }
 
@@ -167,10 +174,16 @@ fun Cell.toDouble(): Double {
             when (cellValue.cellType) {
                 Cell.CELL_TYPE_STRING -> return stringToDouble(cellValue.stringValue)
                 Cell.CELL_TYPE_NUMERIC -> return cellValue.numberValue.toDouble()
-                else -> throw IllegalAccessException("cellはDoubleに変換できません")
+                else -> {
+                    log.warn("Can't parse '$this' to Double, return 0.0")
+                    return 0.0
+                }
             }
         }
-        else -> throw IllegalAccessException("cellはDoubleに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to Double, return 0.0")
+            return 0.0
+        }
     }
 }
 
@@ -181,10 +194,16 @@ fun Cell.toBoolean(): Boolean {
             val cellValue = getFormulaCellValue(this)
             when (cellValue.cellType) {
                 Cell.CELL_TYPE_BOOLEAN -> return cellValue.booleanValue
-                else -> throw IllegalAccessException("cellはBooleanに変換できません")
+                else -> {
+                    log.warn("Can't parse '$this' to Boolean, return false")
+                    return false
+                }
             }
         }
-        else -> throw IllegalAccessException("cellはBooleanに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to Boolean, return false")
+            return false
+        }
     }
 }
 
@@ -196,7 +215,10 @@ fun Cell.toDate(): Date {
                 val cellValue = getFormulaCellValue(this)
                 when (cellValue.cellType) {
                     Cell.CELL_TYPE_NUMERIC -> return dateCellValue
-                    else -> throw IllegalAccessException("cellはDeteに変換できません")
+                    else -> {
+                        log.warn("Can't parse '$this' to Date, return EMPTY")
+                        return Excel.EMPTY_DATE
+                    }
                 }
             }
             Cell.CELL_TYPE_STRING -> {
@@ -205,7 +227,7 @@ fun Cell.toDate(): Date {
             else -> return Excel.EMPTY_DATE
         }
     } catch (e: Exception) {
-        log.warn("Can't parse '$this' to Date, return null.")
+        log.warn("Can't parse '$this' to Date, return EMPTY.")
         return Excel.EMPTY_DATE
     }
 }
@@ -248,6 +270,6 @@ private fun Cell.setValue(value: Any) {
         is Double -> setCellValue(value)
         is Date -> setCellValue(value)
         is Boolean -> setCellValue(value)
-        else -> throw IllegalArgumentException("文字列か数値のみ対応しています")
+        else -> throw IllegalArgumentException("Can't set '$value'")
     }
 }
