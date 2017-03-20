@@ -1,6 +1,7 @@
 package ee.excel
 
 import org.apache.poi.ss.usermodel.*
+import org.apache.poi.xssf.usermodel.XSSFColor
 import org.slf4j.LoggerFactory
 import java.io.FileInputStream
 import java.io.IOException
@@ -247,6 +248,16 @@ fun Cell.toUrl(): URL {
 }
 
 fun Cell.trim(): String = toString().trim()
+fun Cell.backgroundRgb(): String {
+    var ret = ""
+    val color = cellStyle.fillBackgroundColorColor
+    println(color)
+    if (color != null && color is XSSFColor && color.getRGB() != null) {
+        val rgb = color.getRGB()
+        ret = "rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})"
+    }
+    return ret
+}
 
 private fun getFormulaCellValue(cell: Cell): CellValue {
     val workbook = cell.sheet.workbook
