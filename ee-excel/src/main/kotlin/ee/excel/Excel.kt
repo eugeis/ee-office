@@ -1,34 +1,23 @@
 package ee.excel
 
-/*
-The MIT License (MIT)
-Copyright (c) 2016 Shinichi ARATA.
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
- */
-
 import org.apache.poi.ss.usermodel.*
+import org.apache.poi.xssf.usermodel.XSSFColor
+import org.slf4j.LoggerFactory
 import java.io.FileInputStream
 import java.io.IOException
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.regex.Pattern
 
+private val log = LoggerFactory.getLogger(Excel::class.java)
+private val dateParser = SimpleDateFormat("DD.MM.YYYY")
+
+
 class Excel {
+
     companion object {
         @JvmStatic
         fun open(fileName: String): Workbook {
@@ -61,6 +50,10 @@ class Excel {
                 ""
             } + ('A' + (num - first) % 26)
         }
+
+        val EMPTY_DATE = Date()
+        val EMPTY_URL = URL("http://")
+
     }
 }
 
@@ -129,17 +122,20 @@ fun Cell.toStr(): String {
             }
 
         }
-        else -> throw IllegalAccessException("cellはStringに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to String, return empty.")
+            return ""
+        }
     }
 }
 
 fun Cell.toInt(): Int {
     fun stringToInt(value: String): Int {
         try {
-            // toIntだと44.5のような文字列を44に変換できないため、一度Dobuleに変換している
             return value.toDouble().toInt()
         } catch (e: NumberFormatException) {
-            throw IllegalAccessException("cellはIntに変換できません")
+            log.warn("Can't parse '$this' to Int, return 0")
+            return 0
         }
     }
 
@@ -154,7 +150,10 @@ fun Cell.toInt(): Int {
                 else -> throw IllegalAccessException("cellはIntに変換できません")
             }
         }
-        else -> throw IllegalAccessException("cellはIntに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to Int, return 0")
+            return 0
+        }
     }
 }
 
@@ -163,7 +162,8 @@ fun Cell.toDouble(): Double {
         try {
             return value.toDouble()
         } catch (e: NumberFormatException) {
-            throw IllegalAccessException("cellはDoubleに変換できません")
+            log.warn("Can't parse '$this' to Double, return 0.0")
+            return 0.0
         }
     }
 
@@ -175,10 +175,16 @@ fun Cell.toDouble(): Double {
             when (cellValue.cellType) {
                 Cell.CELL_TYPE_STRING -> return stringToDouble(cellValue.stringValue)
                 Cell.CELL_TYPE_NUMERIC -> return cellValue.numberValue.toDouble()
-                else -> throw IllegalAccessException("cellはDoubleに変換できません")
+                else -> {
+                    log.warn("Can't parse '$this' to Double, return 0.0")
+                    return 0.0
+                }
             }
         }
-        else -> throw IllegalAccessException("cellはDoubleに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to Double, return 0.0")
+            return 0.0
+        }
     }
 }
 
@@ -189,25 +195,68 @@ fun Cell.toBoolean(): Boolean {
             val cellValue = getFormulaCellValue(this)
             when (cellValue.cellType) {
                 Cell.CELL_TYPE_BOOLEAN -> return cellValue.booleanValue
-                else -> throw IllegalAccessException("cellはBooleanに変換できません")
+                else -> {
+                    log.warn("Can't parse '$this' to Boolean, return false")
+                    return false
+                }
             }
         }
-        else -> throw IllegalAccessException("cellはBooleanに変換できません")
+        else -> {
+            log.warn("Can't parse '$this' to Boolean, return false")
+            return false
+        }
     }
 }
 
 fun Cell.toDate(): Date {
-    when (cellType) {
-        Cell.CELL_TYPE_NUMERIC -> return dateCellValue
-        Cell.CELL_TYPE_FORMULA -> {
-            val cellValue = getFormulaCellValue(this)
-            when (cellValue.cellType) {
-                Cell.CELL_TYPE_NUMERIC -> return dateCellValue
-                else -> throw IllegalAccessException("cellはDeteに変換できません")
+    try {
+        when (cellType) {
+            Cell.CELL_TYPE_NUMERIC -> return dateCellValue
+            Cell.CELL_TYPE_FORMULA -> {
+                val cellValue = getFormulaCellValue(this)
+                when (cellValue.cellType) {
+                    Cell.CELL_TYPE_NUMERIC -> return dateCellValue
+                    else -> {
+                        log.warn("Can't parse '$this' to Date, return EMPTY")
+                        return Excel.EMPTY_DATE
+                    }
+                }
             }
+            Cell.CELL_TYPE_STRING -> {
+                return dateParser.parse(this.stringCellValue)
+            }
+            else -> return Excel.EMPTY_DATE
         }
-        else -> throw IllegalAccessException("cellはDateに変換できません")
+    } catch (e: Exception) {
+        log.warn("Can't parse '$this' to Date, return EMPTY.")
+        return Excel.EMPTY_DATE
     }
+}
+
+fun Cell.toUrl(): URL {
+    try {
+        val value = trim()
+        if (value.isNotBlank()) {
+            return URL(value)
+        } else {
+            return Excel.EMPTY_URL
+        }
+    } catch (e: Exception) {
+        log.warn("Can't parse '$this' to URL, return null.")
+        return Excel.EMPTY_URL
+    }
+}
+
+fun Cell.trim(): String = toString().trim()
+fun Cell.backgroundRgb(): String {
+    var ret = ""
+    val color = cellStyle.fillBackgroundColorColor
+    println(color)
+    if (color != null && color is XSSFColor && color.getRGB() != null) {
+        val rgb = color.getRGB()
+        ret = "rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})"
+    }
+    return ret
 }
 
 private fun getFormulaCellValue(cell: Cell): CellValue {
@@ -232,6 +281,6 @@ private fun Cell.setValue(value: Any) {
         is Double -> setCellValue(value)
         is Date -> setCellValue(value)
         is Boolean -> setCellValue(value)
-        else -> throw IllegalArgumentException("文字列か数値のみ対応しています")
+        else -> throw IllegalArgumentException("Can't set '$value'")
     }
 }
