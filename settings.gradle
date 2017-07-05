@@ -1,1 +1,1 @@
-include 'ee-excel', 'ee-powerpoint', 'ee-msaccess'
+include 'ee-excel', 'ee-powerpoint', 'ee-msaccess', 'ee-word'
