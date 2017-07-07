@@ -1,5 +1,6 @@
 package ee.word
 
+import org.apache.poi.hwpf.HWPFDocument
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.slf4j.LoggerFactory
 import java.io.FileInputStream
@@ -22,6 +23,23 @@ class Word {
 
         @JvmStatic
         fun write(document: XWPFDocument, fileName: String) {
+            val outputPath = Paths.get(fileName)
+            try {
+                Files.newOutputStream(outputPath).use {
+                    document.write(it)
+                }
+            } catch (e: IOException) {
+                throw e
+            }
+        }
+
+        @JvmStatic
+        fun openDoc(fileName: String): HWPFDocument {
+            return HWPFDocument(FileInputStream(Paths.get(fileName).toFile()))
+        }
+
+        @JvmStatic
+        fun write(document: HWPFDocument, fileName: String) {
             val outputPath = Paths.get(fileName)
             try {
                 Files.newOutputStream(outputPath).use {

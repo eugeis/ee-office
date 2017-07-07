@@ -7,6 +7,7 @@ import ee.common.ext.toKey
 import ee.slides.*
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.xslf.usermodel.*
+import java.awt.geom.Rectangle2D
 import java.io.File
 import java.io.FileInputStream
 import java.nio.file.Path
@@ -88,10 +89,10 @@ fun XSLFNotes.toNotes(): Notes = Notes(shapes = shapes.mapNotNull(XSLFShape::toS
 
 fun XSLFComments.toComments(): MutableList<String> = ctCommentsList.cmList.mapNotNull { it.letTraceExc { it.text } }.toMutableList()
 
-fun java.awt.Rectangle.toAnchor(): Rectangle? = letTraceExc {
+fun Rectangle2D.toAnchor(): Rectangle? = letTraceExc {
     val ret = "${height}_${width}__${x}_${y}"
     anchors.getOrPut(ret, {
-        Rectangle(name = ret, height = height, width = width, x = x, y = y)
+        Rectangle(name = ret, height = height.toInt(), width = width.toInt(), x = x.toInt(), y = y.toInt())
     })
 }
 
