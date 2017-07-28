@@ -1,3 +1,4 @@
+/*
 package ee.word
 
 import ee.common.ext.fileExt
@@ -63,3 +64,4 @@ private fun HWPFDocument.extractChapter(): Content {
     }
     return Content("", points)
 }
+*/

@@ -1,3 +1,4 @@
+/*
 package ee.word
 
 import org.apache.poi.hwpf.HWPFDocument
@@ -51,3 +52,4 @@ class Word {
         }
     }
 }
+*/
