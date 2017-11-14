@@ -4,7 +4,6 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import ee.common.ext.exists
 import ee.common.ext.isWindows
 import ee.slides.Presentation
-import ee.slides.aggregate
 import ee.slides.extractPicturesTo
 import ee.slides.html.toCss
 import ee.slides.html.toCssNamesAll
