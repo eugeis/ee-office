@@ -1,5 +1,7 @@
 package ee.excel
 
+import ee.common.ext.exists
+import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import org.apache.poi.ss.usermodel.*
 import org.apache.poi.xssf.usermodel.XSSFColor
 import org.slf4j.LoggerFactory
@@ -7,10 +9,13 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.net.URL
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.regex.Pattern
+import org.apache.poi.hssf.usermodel.HSSFSheet
+
 
 private val log = LoggerFactory.getLogger(Excel::class.java)
 private val dateParser = SimpleDateFormat("DD.MM.YYYY")
@@ -20,15 +25,21 @@ class Excel {
 
     companion object {
         @JvmStatic
-        fun open(fileName: String): Workbook {
-            return WorkbookFactory.create(FileInputStream(Paths.get(fileName).toFile()))
+        fun open(filePath: Path): Workbook {
+            log.info("open '{}'", filePath)
+            if (filePath.exists()) {
+                return WorkbookFactory.create(FileInputStream(filePath.toFile()))
+            } else {
+                val ret = HSSFWorkbook()
+                ret.createSheet("Worksheet")
+                return ret
+            }
         }
 
         @JvmStatic
-        fun write(workbook: Workbook, fileName: String) {
-            val outputPath = Paths.get(fileName)
+        fun write(workbook: Workbook, filePath: Path) {
             try {
-                Files.newOutputStream(outputPath).use {
+                Files.newOutputStream(filePath).use {
                     workbook.write(it)
                 }
             } catch (e: IOException) {
@@ -88,8 +99,7 @@ operator fun Sheet.get(cellLabel: String): Cell {
     matcher.find()
 
     var num = 0
-    matcher.group(1).toUpperCase().reversed().forEachIndexed {
-        i, c ->
+    matcher.group(1).toUpperCase().reversed().forEachIndexed { i, c ->
         val delta = c.toInt() - ORIGIN + 1
         num += delta * Math.pow(RADIX.toDouble(), i.toDouble()).toInt()
     }
@@ -283,4 +293,10 @@ private fun Cell.setValue(value: Any) {
         is Boolean -> setCellValue(value)
         else -> throw IllegalArgumentException("Can't set '$value'")
     }
+}
+
+fun Row.cell(num: Int, value: String) {
+    val cell = getCell(num, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK)
+    cell.setCellType(CellType.STRING)
+    cell.setCellValue(value)
 }

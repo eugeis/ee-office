@@ -7,6 +7,7 @@ import ee.common.ext.toKey
 import ee.slides.*
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.xslf.usermodel.*
+import org.slf4j.LoggerFactory
 import java.awt.geom.Rectangle2D
 import java.io.File
 import java.io.FileInputStream
@@ -17,6 +18,9 @@ import java.util.*
 private var colors = hashMapOf<String, Color>()
 private var anchors = hashMapOf<String, Rectangle>()
 private var fonts = hashMapOf<String, Font>()
+
+private val log = LoggerFactory.getLogger("PowerPoint")
+
 
 class PowerPoint {
     companion object {
@@ -60,9 +64,9 @@ private fun resetCaches() {
 }
 
 private fun Presentation.assignCaches() {
-    anchors = ArrayList<Rectangle>(ee.pptx.anchors.values)
-    fonts = ArrayList<Font>(ee.pptx.fonts.values)
-    colors = ArrayList<Color>(ee.pptx.colors.values)
+    anchors = ArrayList(ee.pptx.anchors.values)
+    fonts = ArrayList(ee.pptx.fonts.values)
+    colors = ArrayList(ee.pptx.colors.values)
 }
 
 fun XMLSlideShow.toTopic(name: String): Topic = Topic(name = name,
@@ -108,7 +112,7 @@ fun XSLFTextParagraph.toParagraphType(): ParagraphType {
 
 fun PaintStyle.toColor(): Color {
     if (this is PaintStyle.SolidPaint) {
-        val color = this.solidColor.color
+        val color = solidColor.color
         val ret = "${color.red}_${color.green}_${color.blue}"
         return colors.getOrPut(ret, {
             Color(red = color.red, blue = color.blue, green = color.green, alpha = color.alpha)
@@ -176,3 +180,75 @@ fun Sequence<File>.toPresentation(name: String): Presentation {
 }
 
 fun File.toPresentation(): Presentation? = letTraceExc { PowerPoint.open(this).toPresentation(nameWithoutExtension) }
+
+class TextRunGroup(val paragraph: XSLFTextParagraph) {
+
+    val textRuns: MutableList<XSLFTextRun> = mutableListOf()
+    private var baseTextRun: XSLFTextRun? = null
+
+    fun addIfSimilar(textRun: XSLFTextRun): Boolean {
+        var ret = true
+        if (textRun.isLineBreak()) {
+            textRuns.add(textRun)
+        } else if (baseTextRun == null) {
+            baseTextRun = textRun
+            textRuns.add(textRun)
+        } else if (baseTextRun!!.isSimilar(textRun)) {
+            textRuns.add(textRun)
+        } else {
+            ret = false
+        }
+        return ret
+    }
+
+    fun text(): String {
+        val out = StringBuilder()
+        for (r in textRuns) {
+            if (r.isLineBreak()) {
+                out.append(" ")
+            } else {
+                out.append(r.rawText)
+            }
+        }
+        return out.toString()
+    }
+
+    fun changeText(text: String) {
+        if (textRuns.size == 1) {
+            textRuns.first().setText(text)
+        } else {
+            var changed = false
+            textRuns.forEach {
+                if (changed || it.isLineBreak()) {
+                    paragraph.textRuns.remove(it)
+                } else {
+                    //to check, maybe line break textRun is not needed because calculated bei PowerPoint
+                    it.setText(text)
+                    changed = true
+                }
+            }
+        }
+    }
+
+    fun removeAllFromParagraph(isToRemove: XSLFTextRun.() -> Boolean): Boolean {
+        val currentBaseTextRun = baseTextRun
+        val ret = currentBaseTextRun != null && currentBaseTextRun.isToRemove()
+        if (ret) {
+            log.info("Remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
+            paragraph.textRuns.removeAll(textRuns)
+        }
+        return ret
+    }
+}
+
+fun XSLFTextRun.isLineBreak(): Boolean {
+    return toString().contains("LineBreak", true)
+}
+
+fun XSLFTextRun.isSimilar(other: XSLFTextRun): Boolean {
+    return isBold == other.isBold && isItalic == other.isItalic && isStrikethrough == other.isStrikethrough &&
+            isSubscript == other.isSubscript && isSuperscript == other.isSuperscript &&
+            characterSpacing == other.characterSpacing &&
+            fieldType == other.fieldType &&
+            fontColor == other.fontColor && fontFamily == this.fontFamily && fontSize == other.fontSize
+}
