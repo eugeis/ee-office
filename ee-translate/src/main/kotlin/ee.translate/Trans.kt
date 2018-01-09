@@ -22,25 +22,31 @@ data class Translation(val text: String, var index: Int = 0,
                        var pages: MutableSet<String> = mutableSetOf())
 
 interface TranslationService {
-    fun translate(text: String, context: String = "", document: String = "", page: Int = 0): String
+    fun translate(text: String, context: String = "", document: String = "", page: Int = 0, useOriginalAsDefault: Boolean = false): String
 }
 
-object TranslationServiceEmpty : TranslationService {
-    override fun translate(text: String, context: String, document: String, page: Int): String = ""
+object TranslationServiceEmptyOrDefault : TranslationService {
+    override fun translate(text: String, context: String, document: String, page: Int, useOriginalAsDefault: Boolean): String {
+        return if (useOriginalAsDefault) {
+            text
+        } else {
+            ""
+        }
+    }
 }
 
 
-abstract class AbstractMutableTranslationService(var translationService: TranslationService,
-                                                 var translated: MutableMap<String, Translation> = mutableMapOf()) :
+abstract class AbstractMutableTranslationService(private val translationService: TranslationService,
+                                                 val translated: MutableMap<String, Translation> = mutableMapOf()) :
         TranslationService {
     var index: Int = 0
 
-    override fun translate(text: String, context: String, document: String, page: Int): String {
-        var translation = translated.get(text)
+    override fun translate(text: String, context: String, document: String, page: Int, useOriginalAsDefault: Boolean): String {
+        var translation = translated[text]
         if (translation == null) {
-            translation = Translation(translationService.translate(text, context, document, page), index++)
+            translation = Translation(translationService.translate(text, context, document, page, useOriginalAsDefault), index++)
             translation.contexts.add(context)
-            translation.documents.put(document, 1)
+            translation.documents[document] = 1
             translation.pages.add("1:$page")
             translated[text] = translation
         } else {
@@ -49,7 +55,7 @@ abstract class AbstractMutableTranslationService(var translationService: Transla
             }
 
             if (document.isNotEmpty()) {
-                var number = translation.documents.get(document)
+                var number = translation.documents[document]
                 if (number == null) {
                     number = translation.documents.size + 1
                     translation.documents[document] = number
@@ -63,14 +69,14 @@ abstract class AbstractMutableTranslationService(var translationService: Transla
     fun removeOtherKeys(keys: Set<String>) {
         val size = translated.size
         val toRemove = translated.filterKeys { !keys.contains(it) }
-        toRemove.forEach { k, t ->
+        toRemove.forEach { k, _ ->
             translated.remove(k)
         }
         log.info("removeOtherKeys, original size={}, toRemove={}, current={}", size, toRemove.size, translated.size)
     }
 }
 
-class TranslationServiceXslx(val filePath: Path, translationService: TranslationService,
+class TranslationServiceXslx(private val filePath: Path, translationService: TranslationService,
                              translated: MutableMap<String, Translation> = mutableMapOf()) :
         AbstractMutableTranslationService(translationService, translated) {
     private val separator: String = "≤"
@@ -84,19 +90,16 @@ class TranslationServiceXslx(val filePath: Path, translationService: Translation
             sheet.forEach { row ->
                 val ret = Translation(
                         row.getCell(1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue, index++,
-                        row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.
-                                split(separator).filter { it.trim().isNotEmpty() }.toMutableSet(),
+                        row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet(),
                         mutableMapOf(),
-                        row.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.
-                                split(separator).filter { it.trim().isNotEmpty() }.toMutableSet())
+                        row.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet())
 
-                row.getCell(3, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.
-                        split(separator).filter { it.trim().isNotEmpty() }.forEach {
-                    val documentNumber = it.split(documentNumberSeparator)
-                    if (documentNumber.size >= 2) {
-                        ret.documents.put(documentNumber[0], documentNumber[1].toInt())
-                    }
-                }
+                row.getCell(3, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.forEach {
+                            val documentNumber = it.split(documentNumberSeparator)
+                            if (documentNumber.size >= 2) {
+                                ret.documents.put(documentNumber[0], documentNumber[1].toInt())
+                            }
+                        }
                 translated[row.getCell(0, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue] = ret
             }
             workbook = currentWorkbook
@@ -120,8 +123,7 @@ class TranslationServiceXslx(val filePath: Path, translationService: Translation
                 row.cell(0, it.key)
                 row.cell(1, it.value.text)
                 row.cell(2, it.value.contexts.joinToString(separator))
-                row.cell(3, it.value.documents.map { "${it.key}$documentNumberSeparator${it.value}" }.
-                        joinToString(separator))
+                row.cell(3, it.value.documents.map { "${it.key}$documentNumberSeparator${it.value}" }.joinToString(separator))
                 row.cell(4, it.value.pages.joinToString(separator))
                 indexes.add(it.value.index)
             }
@@ -142,18 +144,18 @@ class TranslationServiceXslx(val filePath: Path, translationService: Translation
     }
 }
 
-class TranslateServiceNoNeedTranslation(val translationService: TranslationService) : TranslationService {
-    override fun translate(text: String, context: String, document: String, page: Int): String {
-        try {
+class TranslateServiceNoNeedTranslation(private val translationService: TranslationService) : TranslationService {
+    override fun translate(text: String, context: String, document: String, page: Int, useOriginalAsDefault: Boolean): String {
+        return try {
             parseDouble(text)
-            return text
+            text
             //don't translate if number
         } catch (e: Exception) {
-            try {
-                return translationService.translate(text, context, document, page)
+            return try {
+                translationService.translate(text, context, document, page, useOriginalAsDefault)
             } catch (e: Exception) {
                 log.warn("can't translate {} because of {}", text, e)
-                return ""
+                ""
             }
         }
     }
@@ -176,7 +178,7 @@ class TranslationServiceByGoogle : TranslationService {
         translate = TranslateOptions.newBuilder().setApiKey(key).build().service
     }
 
-    override fun translate(text: String, context: String, document: String, page: Int): String {
+    override fun translate(text: String, context: String, document: String, page: Int, useOriginalAsDefault: Boolean): String {
         val translation = translate.translate(text, source, target)
         return translation.translatedText
     }

@@ -35,8 +35,7 @@ class PowerPoint {
         }
 
         fun parseFiles(path: Path): List<Presentation> {
-            val presentations: List<Presentation> = path.toFile().walkTopDown().filter(File::isPresentation).
-                    mapNotNull(File::toPresentation).toList()
+            val presentations: List<Presentation> = path.toFile().walkTopDown().filter(File::isPresentation).mapNotNull(File::toPresentation).toList()
             return presentations
         }
 
@@ -246,9 +245,18 @@ fun XSLFTextRun.isLineBreak(): Boolean {
 }
 
 fun XSLFTextRun.isSimilar(other: XSLFTextRun): Boolean {
-    return isBold == other.isBold && isItalic == other.isItalic && isStrikethrough == other.isStrikethrough &&
+    var ret = isBold == other.isBold && isItalic == other.isItalic && isStrikethrough == other.isStrikethrough &&
             isSubscript == other.isSubscript && isSuperscript == other.isSuperscript &&
             characterSpacing == other.characterSpacing &&
-            fieldType == other.fieldType &&
-            fontColor == other.fontColor && fontFamily == this.fontFamily && fontSize == other.fontSize
+            fieldType == other.fieldType && fontFamily == this.fontFamily && fontSize == other.fontSize
+    if (ret) {
+        if (fontColor is PaintStyle.SolidPaint && other.fontColor is PaintStyle.SolidPaint) {
+            val solidColor = (fontColor as PaintStyle.SolidPaint).solidColor
+            val otherSolidColor = (other.fontColor as PaintStyle.SolidPaint).solidColor
+            ret = solidColor.color == otherSolidColor.color
+        } else {
+            ret = fontColor == other.fontColor
+        }
+    }
+    return ret
 }
