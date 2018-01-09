@@ -1,28 +1,16 @@
 package ee.translate.fx
 
-import ee.common.ext.withFileNameSuffix
-import ee.pptx.PowerPoint
-import ee.translate.TranslateServiceNoNeedTranslation
-import ee.translate.TranslationServiceByGoogle
-import ee.translate.TranslationServiceCsv
-import ee.translate.pptx.translateTo
+import ee.translate.pptx.isColor
+import ee.translate.pptx.translatePowerPoints
 import javafx.application.Platform
+import org.apache.poi.sl.usermodel.TextRun
 import tornadofx.*
-import java.io.File
-import java.nio.file.Path
-import java.nio.file.Paths
 
 class TranslateController : Controller() {
     val dashboard: Dashboard by inject()
-    val translations: MutableMap<String, String> = mutableMapOf()
-    val translationServiceGoogle: TranslationServiceByGoogle = TranslationServiceByGoogle(config.string(LANGUAGE_FROM, "ru"),
-            config.string(LANGUAGE_TO, "de"))
-    val translationService: TranslationServiceCsv = TranslationServiceCsv(Paths.get(config.string(DICTIONARY, "dictionary.csv")),
-            TranslateServiceNoNeedTranslation(translationServiceGoogle), translations)
 
     fun init() {
         showDashboard()
-        translationService.load()
     }
 
     fun showDashboard() {
@@ -35,6 +23,15 @@ class TranslateController : Controller() {
 
         Platform.runLater {
             with(config) {
+                if (containsKey(SOURCE_DIR)) {
+                    dashboard.sourceDir.text = string(SOURCE_DIR)
+                }
+                if (containsKey(TARGET_DIR)) {
+                    dashboard.targetDir.text = string(TARGET_DIR)
+                }
+                if (containsKey(DICTIONARY_GLOBAL)) {
+                    dashboard.dictionaryGlobal.text = string(DICTIONARY_GLOBAL)
+                }
                 if (containsKey(DICTIONARY)) {
                     dashboard.dictionary.text = string(DICTIONARY)
                 }
@@ -48,17 +45,26 @@ class TranslateController : Controller() {
         }
     }
 
-    fun translate(files: List<File>, interactive: Boolean, translationUpdater: (String) -> Unit) {
-        files.forEach { file ->
-            val slideShow = PowerPoint.open(Paths.get(file.name).toFile())
-            val target = file.name.withFileNameSuffix("_de")
-            slideShow.translateTo(translationService, Paths.get(target).toFile())
+    fun translate() {
+        var removeTextRun: TextRun.() -> Boolean = { false }
+        if (dashboard.removeByColor.isSelected) {
+            removeTextRun = {
+                val color = dashboard.colorToRemove.value
+                isColor(color.red, color.green, color.blue)
+            }
         }
 
+        translatePowerPoints(dashboard.sourceDir.text, dashboard.targetDir.text,
+                dashboard.dictionaryGlobal.text, dashboard.dictionary.text,
+                dashboard.languageFrom.text, dashboard.languageTo.text,
+                dashboard.statusUpdater, removeTextRun)
     }
 
     fun storeSettings() {
         with(config) {
+            set(SOURCE_DIR to dashboard.sourceDir.text)
+            set(TARGET_DIR to dashboard.targetDir.text)
+            set(DICTIONARY_GLOBAL to dashboard.dictionaryGlobal.text)
             set(DICTIONARY to dashboard.dictionary.text)
             set(LANGUAGE_FROM, dashboard.languageFrom.text)
             set(LANGUAGE_TO, dashboard.languageTo.text)
@@ -68,6 +74,9 @@ class TranslateController : Controller() {
 
     fun clearSettings() {
         with(config) {
+            remove(SOURCE_DIR)
+            remove(TARGET_DIR)
+            remove(DICTIONARY_GLOBAL)
             remove(DICTIONARY)
             remove(LANGUAGE_FROM)
             remove(LANGUAGE_TO)
@@ -81,22 +90,11 @@ class TranslateController : Controller() {
     }
 
     companion object {
-        val TARGET_TO = "TARGET_TO"
+        val SOURCE_DIR = "SOURCE_DIR"
+        val TARGET_DIR = "TARGET_DIR"
+        val DICTIONARY_GLOBAL = "DICTIONARY_GLOBAL"
         val DICTIONARY = "DICTIONARY"
         val LANGUAGE_FROM = "LANGUAGE_FROM"
         val LANGUAGE_TO = "LANGUAGE_TO"
-    }
-
-    fun changeDictionary(csvFile: Path) {
-        translationService.csvFilePath = csvFile
-        translationService.load()
-    }
-
-    fun changeFrom(languageFrom: String) {
-        translationServiceGoogle.changeSource(languageFrom)
-    }
-
-    fun changeTo(languageTo: String) {
-        translationServiceGoogle.changeSource(languageTo)
     }
 }
