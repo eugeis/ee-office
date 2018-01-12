@@ -4,9 +4,9 @@ import javafx.event.EventHandler
 import javafx.stage.Stage
 import tornadofx.*
 
-open class TranslateApp() : App() {
+open class TranslateApp : App() {
     override val primaryView = Dashboard::class
-    val translateController: TranslateController by inject()
+    private val translateController: TranslateController by inject()
 
     override fun start(stage: Stage) {
         stage.onCloseRequest = EventHandler { translateController.exit() }
