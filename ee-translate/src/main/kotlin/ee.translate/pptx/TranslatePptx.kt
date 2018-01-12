@@ -22,8 +22,8 @@ private val log = LoggerFactory.getLogger("TranslatePptx")
 private val REMOVE = "REMOVE"
 private val REMOVE_FULL = "REMOVE_FULL"
 
-private val prefix = """(^[ \d:’;.,?!%&<>\n\t\-—+'…\[\]"/°]+)""".toRegex()
-private val suffix = """(.+?)([ \d:’;.,?!%&<>\n\t\-—+'…\[\]"/°]+)""".toRegex()
+private val prefix = """(^[ \d:’;.,!%&<>\n\t\-—+'…\[\]"/°]+)""".toRegex()
+private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t\-—+'…\[\]"/°]+)""".toRegex()
 
 fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File,
                              statusUpdater: (String) -> Unit,
