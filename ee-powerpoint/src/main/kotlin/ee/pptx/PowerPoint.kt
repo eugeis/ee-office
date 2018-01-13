@@ -7,6 +7,10 @@ import ee.common.ext.toKey
 import ee.slides.*
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.xslf.usermodel.*
+import org.apache.xmlbeans.XmlObject
+import org.openxmlformats.schemas.drawingml.x2006.main.CTRegularTextRun
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextField
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextLineBreak
 import org.slf4j.LoggerFactory
 import java.awt.geom.Rectangle2D
 import java.io.File
@@ -181,19 +185,21 @@ fun Sequence<File>.toPresentation(name: String): Presentation {
 fun File.toPresentation(): Presentation? = letTraceExc { PowerPoint.open(this).toPresentation(nameWithoutExtension) }
 
 class TextRunGroup(val paragraph: XSLFTextParagraph) {
-
     val textRuns: MutableList<XSLFTextRun> = mutableListOf()
+    val textRunsWithOutBaseTextRun: MutableList<XSLFTextRun> = mutableListOf()
     private var baseTextRun: XSLFTextRun? = null
 
     fun addIfSimilar(textRun: XSLFTextRun): Boolean {
         var ret = true
         if (textRun.isLineBreak()) {
             textRuns.add(textRun)
+            textRunsWithOutBaseTextRun.add(textRun)
         } else if (baseTextRun == null) {
             baseTextRun = textRun
             textRuns.add(textRun)
         } else if (baseTextRun!!.isSimilar(textRun)) {
             textRuns.add(textRun)
+            textRunsWithOutBaseTextRun.add(textRun)
         } else {
             ret = false
         }
@@ -213,40 +219,87 @@ class TextRunGroup(val paragraph: XSLFTextParagraph) {
     }
 
     fun changeText(text: String) {
-        if (textRuns.size == 1) {
-            textRuns.first().setText(text)
+        val currentBaseTextRun = baseTextRun
+        if (currentBaseTextRun == null) {
+            log.info("can't change text, because baseTextRun is null")
+            return
+        }
+
+        currentBaseTextRun.setText(text)
+
+        //to check, maybe line break textRun is not needed because calculated bei PowerPoint
+        textRunsWithOutBaseTextRun.forEach { it.remove() }
+        paragraph.textRuns.removeAll(textRunsWithOutBaseTextRun)
+
+        textRuns.clear()
+        textRuns.add(currentBaseTextRun)
+        textRunsWithOutBaseTextRun.clear()
+    }
+
+    private fun XSLFTextRun.remove() {
+        if (xmlObject is CTTextField) {
+            removeTextField(xmlObject)
+        } else if (xmlObject is CTTextLineBreak) {
+            removeTextLineBreak(xmlObject)
         } else {
-            var textRunWhereToChange: XSLFTextRun? = null
-            var found = false
-            textRuns.forEach {
-                if (found || it.isLineBreak()) {
-                    paragraph.textRuns.remove(it)
-                } else {
-                    textRunWhereToChange = it
-                    found = true
-                }
-            }
-            //to check, maybe line break textRun is not needed because calculated bei PowerPoint
-            textRunWhereToChange!!.setText(text)
+            removeReqularRun(xmlObject)
         }
     }
+
+    private fun removeTextField(xmlObject: XmlObject?) {
+        val items = paragraph.xmlObject.fldArray
+        for (index in 0..items.size - 1) {
+            val item = items[index]
+            if (xmlObject == item) {
+                paragraph.xmlObject.removeFld(index)
+                break
+            }
+        }
+    }
+
+    private fun removeTextLineBreak(xmlObject: XmlObject?) {
+        val items = paragraph.xmlObject.brArray
+        for (index in 0..items.size - 1) {
+            val item = items[index]
+            if (xmlObject == item) {
+                paragraph.xmlObject.removeBr(index)
+                break
+            }
+        }
+    }
+
+    private fun removeReqularRun(xmlObject: XmlObject?) {
+        val items = paragraph.xmlObject.rArray
+        for (index in 0..items.size - 1) {
+            val item = items[index]
+            if (xmlObject == item) {
+                paragraph.xmlObject.removeR(index)
+                break
+            }
+        }
+    }
+
 
     fun removeAllFromParagraph(isToRemove: XSLFTextRun.() -> Boolean): Boolean {
         val currentBaseTextRun = baseTextRun
         val ret = currentBaseTextRun != null && currentBaseTextRun.isToRemove()
         if (ret) {
-            if (!paragraph.textRuns.removeAll(textRuns)) {
-                log.info("Remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
-            } else {
-                log.info("Can't remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
-            }
+            log.info("Remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
+            textRuns.forEach { it.remove() }
+            paragraph.textRuns.removeAll(textRuns)
         }
         return ret
+    }
+
+    fun clear() {
+        textRuns.clear()
+        textRunsWithOutBaseTextRun.clear()
+        baseTextRun = null
     }
 }
 
 fun XSLFTextRun.isLineBreak(): Boolean {
-    return toString().contains("LineBreak", true)
+    return xmlObject is CTTextLineBreak
 }
 
 fun XSLFTextRun.isSimilar(other: XSLFTextRun): Boolean {
