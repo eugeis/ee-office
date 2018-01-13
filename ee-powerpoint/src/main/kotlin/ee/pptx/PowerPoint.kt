@@ -216,16 +216,18 @@ class TextRunGroup(val paragraph: XSLFTextParagraph) {
         if (textRuns.size == 1) {
             textRuns.first().setText(text)
         } else {
-            var changed = false
+            var textRunWhereToChange: XSLFTextRun? = null
+            var found = false
             textRuns.forEach {
-                if (changed || it.isLineBreak()) {
+                if (found || it.isLineBreak()) {
                     paragraph.textRuns.remove(it)
                 } else {
-                    //to check, maybe line break textRun is not needed because calculated bei PowerPoint
-                    it.setText(text)
-                    changed = true
+                    textRunWhereToChange = it
+                    found = true
                 }
             }
+            //to check, maybe line break textRun is not needed because calculated bei PowerPoint
+            textRunWhereToChange!!.setText(text)
         }
     }
 
@@ -233,8 +235,11 @@ class TextRunGroup(val paragraph: XSLFTextParagraph) {
         val currentBaseTextRun = baseTextRun
         val ret = currentBaseTextRun != null && currentBaseTextRun.isToRemove()
         if (ret) {
-            log.info("Remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
-            paragraph.textRuns.removeAll(textRuns)
+            if (!paragraph.textRuns.removeAll(textRuns)) {
+                log.info("Remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
+            } else {
+                log.info("Can't remove text runs '{}' from paragraph '{}'", text(), paragraph.text)
+            }
         }
         return ret
     }

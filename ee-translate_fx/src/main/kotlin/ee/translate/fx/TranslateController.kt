@@ -48,16 +48,18 @@ class TranslateController : Controller() {
     fun translate() {
         var removeTextRun: TextRun.() -> Boolean = { false }
         if (dashboard.removeByColor.isSelected) {
-            removeTextRun = {
-                val color = dashboard.colorToRemove.value
-                isColor(color.red, color.green, color.blue)
-            }
+            val color = dashboard.colorToRemove.value
+            val red = (color.red * 255).toInt()
+            val green = (color.green * 255).toInt()
+            val blue = (color.blue * 255).toInt()
+            removeTextRun = { isColor(red, green, blue) }
         }
 
         translatePowerPoints(dashboard.sourceDir.text, dashboard.targetDir.text,
                 dashboard.dictionaryGlobal.text, dashboard.dictionary.text,
                 dashboard.languageFrom.text, dashboard.languageTo.text,
-                dashboard.statusUpdater, removeTextRun)
+                dashboard.statusUpdater, dashboard.removeUnusedFromGlobal.isSelected,
+                removeTextRun)
     }
 
     fun storeSettings() {

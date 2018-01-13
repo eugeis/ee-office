@@ -22,8 +22,8 @@ private val log = LoggerFactory.getLogger("TranslatePptx")
 private val REMOVE = "REMOVE"
 private val REMOVE_FULL = "REMOVE_FULL"
 
-private val prefix = """(^[ \d:’;.,!%&<>\n\t\-—+'…\[\]"/°]+)""".toRegex()
-private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t\-—+'…\[\]"/°]+)""".toRegex()
+private val prefix = """(^[ \d:’;.,!%&<>\n\t\[\]"/]+)""".toRegex()
+private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t\[\]"/]+)""".toRegex()
 
 fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File,
                              statusUpdater: (String) -> Unit,
@@ -72,7 +72,7 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
                                                         }
 
                                                         if (text.isNotEmpty()) {
-                                                            var translatedText = translationService.translate(text,
+                                                            val translatedText = translationService.translate(text,
                                                                     rawParagraph, fileName, slideNumber, false)
                                                             log.info("{}={} in '{}'", "$pref$text$suf", translatedText, rawParagraph)
                                                             if (translatedText.isNotEmpty() && translatedText != text) {
@@ -104,7 +104,8 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
 
 fun translatePowerPoints(sourceDir: String, targetDir: String, dictionaryGlobal: String, dictionary: String,
                          languageFrom: String, languageTo: String,
-                         statusUpdater: (String) -> Unit, removeTextRun: TextRun.() -> Boolean = { false }) {
+                         statusUpdater: (String) -> Unit,
+                         removeUnusedFromGlobal: Boolean = false, removeTextRun: TextRun.() -> Boolean = { false }) {
     val target = Paths.get(targetDir)
 
     val translationServiceRemote = TranslationServiceEmptyOrDefault
@@ -121,17 +122,19 @@ fun translatePowerPoints(sourceDir: String, targetDir: String, dictionaryGlobal:
                     log.warn("Can't translate '{}' because of '{}'", file, e)
                 }
             }
-    translationServiceGlobal.removeOtherKeys(translationService.translated.keys)
+    if (removeUnusedFromGlobal) {
+        translationServiceGlobal.removeOtherKeys(translationService.translated.keys)
+    }
 
     translationService.close()
     translationServiceGlobal.close()
 }
 
-fun TextRun.isColor(red: Double = 0.0, green: Double = 0.0, blue: Double = 0.0): Boolean {
+fun TextRun.isColor(red: Int = 0, green: Int = 0, blue: Int = 0): Boolean {
     var ret = false
     if (fontColor is PaintStyle.SolidPaint) {
         val color = (fontColor as PaintStyle.SolidPaint).solidColor.color
-        ret = color.red == red.toInt() && color.green == green.toInt() && color.blue == blue.toInt()
+        ret = color.red == red && color.green == green && color.blue == blue
     }
     return ret
 }

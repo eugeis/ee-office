@@ -1,11 +1,8 @@
 package ee.translate.fx
 
-import javafx.animation.KeyFrame
-import javafx.animation.Timeline
 import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.property.StringProperty
-import javafx.event.EventHandler
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.CheckBox
@@ -14,9 +11,9 @@ import javafx.scene.control.ContentDisplay
 import javafx.scene.control.TextField
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.Priority
+import javafx.scene.paint.Color
 import javafx.stage.DirectoryChooser
 import javafx.stage.FileChooser
-import javafx.util.Duration
 import tornadofx.*
 
 class Dashboard : View() {
@@ -28,6 +25,7 @@ class Dashboard : View() {
     var languageFrom: TextField by singleAssign()
     var languageTo: TextField by singleAssign()
     var removeByColor: CheckBox by singleAssign()
+    var removeUnusedFromGlobal: CheckBox by singleAssign()
     var colorToRemove: ColorPicker by singleAssign()
 
 
@@ -176,7 +174,18 @@ class Dashboard : View() {
                                 hGrow = Priority.NEVER
                             }
                         }
-                        colorToRemove = colorpicker {}
+                        colorToRemove = colorpicker(Color.RED) {}
+                        label("Remove unused from global") {
+                            hboxConstraints { margin = Insets(2.0) }
+                            alignment = Pos.CENTER_LEFT
+                            contentDisplay = ContentDisplay.LEFT
+                        }
+                        removeUnusedFromGlobal = checkbox {
+                            hboxConstraints {
+                                margin = Insets(2.0)
+                                hGrow = Priority.NEVER
+                            }
+                        }
                     }
 
                     hbox {
