@@ -3,10 +3,7 @@ package ee.translate.pptx
 import ee.common.ext.addReturn
 import ee.pptx.PowerPoint
 import ee.pptx.TextRunGroup
-import ee.translate.TranslateServiceNoNeedTranslation
-import ee.translate.TranslationService
-import ee.translate.TranslationServiceEmptyOrDefault
-import ee.translate.TranslationServiceXslx
+import ee.translate.*
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.sl.usermodel.TextRun
 import org.apache.poi.sl.usermodel.TextShape
@@ -25,8 +22,7 @@ private val REMOVE_FULL = "REMOVE_FULL"
 private val prefix = """(^[ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
 private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
 
-fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File,
-                             statusUpdater: (String) -> Unit,
+fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File, statusUpdater: (String) -> Unit,
                              removeTextRun: TextRun.() -> Boolean = { false }) {
     val fileName: String = targetFile.nameWithoutExtension
     log.info("translate to {}", fileName)
@@ -77,8 +73,9 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
                                 }
 
                                 if (text.isNotEmpty()) {
-                                    val translatedText = translationService.translate(text,
-                                            rawParagraph, fileName, slideNumber, bigContext, false)
+                                    val translatedText =
+                                        translationService.translate(text, rawParagraph, fileName, slideNumber,
+                                            bigContext, false)
                                     log.info("{}={} in '{}'", "$pref$text$suf", translatedText, rawParagraph)
                                     if (translatedText.isNotEmpty() && translatedText != text) {
                                         try {
@@ -107,25 +104,25 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
     fileOut.close()
 }
 
-fun translatePowerPoints(sourceDir: String, targetDir: String, dictionaryGlobal: String, dictionary: String,
-                         languageFrom: String, languageTo: String,
-                         statusUpdater: (String) -> Unit,
+fun translatePowerPoints(sourceList: List<File>, targetDir: String, dictionaryGlobal: String, dictionary: String,
+                         languageFrom: String, languageTo: String, statusUpdater: (String) -> Unit,
                          removeUnusedFromGlobal: Boolean = false, removeTextRun: TextRun.() -> Boolean = { false }) {
     val target = Paths.get(targetDir)
 
     val translationServiceRemote = TranslationServiceEmptyOrDefault
     val translationServiceGlobal = TranslationServiceXslx(target.resolve(dictionaryGlobal),
-            TranslateServiceNoNeedTranslation(translationServiceRemote))
+        TranslateServiceNoNeedTranslation(translationServiceRemote))
     var translationService = translationServiceGlobal
+
     if (dictionary.isNotEmpty()) {
         translationService = TranslationServiceXslx(target.resolve(dictionary), translationServiceGlobal)
     }
 
-    Paths.get(sourceDir).toFile().listFiles { file -> file.name.endsWith(".pptx", true) }.forEach { file ->
+    sourceList.forEach { file ->
         try {
             val slideShow = PowerPoint.open(file)
             slideShow.translateTo(translationService, target.resolve(file.name).toFile(),
-                    { statusUpdater("Translate ${file.name}: $it") }, removeTextRun)
+                { statusUpdater("Translate ${file.name}: $it") }, removeTextRun)
         } catch (e: Exception) {
             log.warn("Can't translate '{}' because of '{}'", file, e)
         }
@@ -148,3 +145,6 @@ fun TextRun.isColor(red: Int = 0, green: Int = 0, blue: Int = 0): Boolean {
     }
     return ret
 }
+
+fun collectPowerPointFiles(sourceList: String, delimiter: String = ";") =
+    collectFilesByExtension(sourceList, ".pptx", delimiter)

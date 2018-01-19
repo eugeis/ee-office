@@ -1,11 +1,11 @@
 package ee.translate.fx
 
+import ee.translate.pptx.collectPowerPointFiles
 import ee.translate.pptx.isColor
 import ee.translate.pptx.translatePowerPoints
 import javafx.application.Platform
 import org.apache.poi.sl.usermodel.TextRun
-import tornadofx.Controller
-import tornadofx.FX
+import tornadofx.*
 
 class TranslateController : Controller() {
     val dashboard: Dashboard by inject()
@@ -25,7 +25,7 @@ class TranslateController : Controller() {
         Platform.runLater {
             with(config) {
                 if (containsKey(SOURCE_DIR)) {
-                    dashboard.sourceDir.text = string(SOURCE_DIR)
+                    dashboard.sourceDirOrFiles.text = string(SOURCE_DIR)
                 }
                 if (containsKey(TARGET_DIR)) {
                     dashboard.targetDir.text = string(TARGET_DIR)
@@ -56,14 +56,16 @@ class TranslateController : Controller() {
             removeTextRun = { isColor(red, green, blue) }
         }
 
-        translatePowerPoints(dashboard.sourceDir.text, dashboard.targetDir.text, dashboard.dictionaryGlobal.text,
+        val files = collectPowerPointFiles(dashboard.sourceDirOrFiles.text, dashboard.delimiter)
+
+        translatePowerPoints(files, dashboard.targetDir.text, dashboard.dictionaryGlobal.text,
             dashboard.dictionary.text, dashboard.languageFrom.text, dashboard.languageTo.text, dashboard.statusUpdater,
             dashboard.removeUnusedFromGlobal.isSelected, removeTextRun)
     }
 
     fun storeSettings() {
         with(config) {
-            set(SOURCE_DIR to dashboard.sourceDir.text)
+            set(SOURCE_DIR to dashboard.sourceDirOrFiles.text)
             set(TARGET_DIR to dashboard.targetDir.text)
             set(DICTIONARY_GLOBAL to dashboard.dictionaryGlobal.text)
             set(DICTIONARY to dashboard.dictionary.text)

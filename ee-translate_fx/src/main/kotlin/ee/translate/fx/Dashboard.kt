@@ -16,9 +16,11 @@ import javafx.stage.DirectoryChooser
 import javafx.stage.FileChooser
 import tornadofx.*
 
+
 class Dashboard : View() {
+    val delimiter = ";"
     override val root = BorderPane()
-    var sourceDir: TextField by singleAssign()
+    var sourceDirOrFiles: TextField by singleAssign()
     var targetDir: TextField by singleAssign()
     var dictionaryGlobal: TextField by singleAssign()
     var dictionary: TextField by singleAssign()
@@ -48,20 +50,31 @@ class Dashboard : View() {
                             alignment = Pos.CENTER_LEFT
                             contentDisplay = ContentDisplay.LEFT
                         }
-                        sourceDir = textfield() {
+                        sourceDirOrFiles = textfield() {
                             hboxConstraints {
                                 margin = Insets(2.0)
                                 hGrow = Priority.ALWAYS
                             }
                         }
-                        button("...") {
+                        button("Folder...") {
                             hboxConstraints { margin = Insets(2.0) }
                             setOnAction {
                                 val fileChooser = DirectoryChooser()
                                 val selectedDirectory = fileChooser.showDialog(primaryStage)
 
                                 if (selectedDirectory != null) {
-                                    sourceDir.text = selectedDirectory.absolutePath
+                                    sourceDirOrFiles.text = selectedDirectory.absolutePath
+                                }
+                            }
+                        }
+                        button("Files...") {
+                            hboxConstraints { margin = Insets(2.0) }
+                            setOnAction {
+                                val fileChooser = FileChooser()
+                                val selectedFiles = fileChooser.showOpenMultipleDialog(primaryStage)
+
+                                if (selectedFiles != null) {
+                                    sourceDirOrFiles.text = selectedFiles.joinToString(delimiter)
                                 }
                             }
                         }

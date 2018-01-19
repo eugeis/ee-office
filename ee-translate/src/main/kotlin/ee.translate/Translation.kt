@@ -9,8 +9,10 @@ import ee.excel.cell
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Workbook
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.lang.Double.parseDouble
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.collections.set
 
 
@@ -204,4 +206,17 @@ class TranslationServiceByGoogle : TranslationService {
     fun changeTarget(targetLanguage: String) {
         target = TranslateOption.sourceLanguage(targetLanguage)
     }
+}
+
+fun collectFilesByExtension(sourceList: String, fileExtension: String, delimiter: String = ";"): ArrayList<File> {
+    val files = arrayListOf<File>()
+    val fileValidator = { file: File -> file.name.endsWith(fileExtension, true) }
+    sourceList.split(delimiter).map { Paths.get(it).toFile() }.forEach {
+        if (it.isDirectory) {
+            files.addAll(it.listFiles(fileValidator))
+        } else if (fileValidator(it)) {
+            files.add(it)
+        }
+    }
+    return files
 }
