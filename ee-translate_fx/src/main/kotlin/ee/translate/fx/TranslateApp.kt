@@ -2,7 +2,8 @@ package ee.translate.fx
 
 import javafx.event.EventHandler
 import javafx.stage.Stage
-import tornadofx.*
+import tornadofx.App
+import tornadofx.importStylesheet
 
 open class TranslateApp : App() {
     override val primaryView = Dashboard::class

@@ -8,7 +8,6 @@ import ee.slides.*
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.xslf.usermodel.*
 import org.apache.xmlbeans.XmlObject
-import org.openxmlformats.schemas.drawingml.x2006.main.CTRegularTextRun
 import org.openxmlformats.schemas.drawingml.x2006.main.CTTextField
 import org.openxmlformats.schemas.drawingml.x2006.main.CTTextLineBreak
 import org.slf4j.LoggerFactory
@@ -39,7 +38,8 @@ class PowerPoint {
         }
 
         fun parseFiles(path: Path): List<Presentation> {
-            val presentations: List<Presentation> = path.toFile().walkTopDown().filter(File::isPresentation).mapNotNull(File::toPresentation).toList()
+            val presentations: List<Presentation> =
+                path.toFile().walkTopDown().filter(File::isPresentation).mapNotNull(File::toPresentation).toList()
             return presentations
         }
 
@@ -52,8 +52,8 @@ class PowerPoint {
 fun XMLSlideShow.toPresentation(name: String): Presentation {
     resetCaches()
 
-    val ret = Presentation(name = name, topics = arrayListOf(Topic(name,
-            slides = slides.mapNotNull(XSLFSlide::toSlide).toMutableList())))
+    val ret = Presentation(name = name,
+        topics = arrayListOf(Topic(name, slides = slides.mapNotNull(XSLFSlide::toSlide).toMutableList())))
 
     ret.assignCaches()
 
@@ -72,8 +72,8 @@ private fun Presentation.assignCaches() {
     colors = ArrayList(ee.pptx.colors.values)
 }
 
-fun XMLSlideShow.toTopic(name: String): Topic = Topic(name = name,
-        slides = slides.mapNotNull(XSLFSlide::toSlide).toMutableList())
+fun XMLSlideShow.toTopic(name: String): Topic =
+    Topic(name = name, slides = slides.mapNotNull(XSLFSlide::toSlide).toMutableList())
 
 fun XSLFSlide.toSlide(): Slide? = letTraceExc {
     //often is title same as paragraphs of first shape, so check it out and filter it out
@@ -94,7 +94,8 @@ fun XSLFSlide.toSlide(): Slide? = letTraceExc {
 
 fun XSLFNotes.toNotes(): Notes = Notes(shapes = shapes.mapNotNull(XSLFShape::toShape).toMutableList())
 
-fun XSLFComments.toComments(): MutableList<String> = ctCommentsList.cmList.mapNotNull { it.letTraceExc { it.text } }.toMutableList()
+fun XSLFComments.toComments(): MutableList<String> =
+    ctCommentsList.cmList.mapNotNull { it.letTraceExc { it.text } }.toMutableList()
 
 fun Rectangle2D.toAnchor(): Rectangle? = letTraceExc {
     val ret = "${height}_${width}__${x}_${y}"
@@ -126,31 +127,30 @@ fun PaintStyle.toColor(): Color {
 }
 
 fun XSLFTextRun.toFont(): Font? = letTraceExc {
-    val ret = "${fontFamily.toKey()}${isItalic.ifElse("_italic", "")}${isBold.ifElse("_bold", "")}${isUnderlined.ifElse("_underlined", "")}"
+    val ret = "${fontFamily.toKey()}${isItalic.ifElse("_italic", "")}${isBold.ifElse("_bold", "")}${isUnderlined.ifElse(
+        "_underlined", "")}"
     fonts.getOrPut(ret, {
-        Font(name = ret, family = fontFamily,
-                italic = isItalic, underlined = isUnderlined, bold = isBold)
+        Font(name = ret, family = fontFamily, italic = isItalic, underlined = isUnderlined, bold = isBold)
     })
 }
 
 fun XSLFTextRun.toTextRun(): TextRun? = letTraceExc {
-    TextRun(text = rawText, font = toFont()?.name.orEmpty(), color = fontColor.toColor().name, cap = textCap.name.toTextCap())
+    TextRun(text = rawText, font = toFont()?.name.orEmpty(), color = fontColor.toColor().name,
+        cap = textCap.name.toTextCap())
 }
 
 fun XSLFTextParagraph.toParagraph(): Paragraph? = letTraceExc {
-    Paragraph(type = toParagraphType(),
-            textAlign = textAlign?.name.toTextAlign(),
-            fontAlign = fontAlign?.name.toFontAlign(), textRuns = textRuns.mapNotNull { it.toTextRun() }.toMutableList())
+    Paragraph(type = toParagraphType(), textAlign = textAlign?.name.toTextAlign(),
+        fontAlign = fontAlign?.name.toFontAlign(), textRuns = textRuns.mapNotNull { it.toTextRun() }.toMutableList())
 }
 
 fun XSLFShape.toShape(): Shape? = letTraceExc {
     val name = shapeName.orEmpty()
     if (this is XSLFTextShape) {
         TextShape(name = name, textType = this.textType?.name.orEmpty(), type = ShapeType.TEXT,
-                anchor = anchor?.toAnchor().orEmpty().name,
-                paragraphs = textParagraphs.mapNotNull {
-                    it.letTraceExc { it.toParagraph() }
-                }.toMutableList())
+            anchor = anchor?.toAnchor().orEmpty().name, paragraphs = textParagraphs.mapNotNull {
+                it.letTraceExc { it.toParagraph() }
+            }.toMutableList())
     } else if (this is XSLFGroupShape) {
         GroupShape(name = name, type = ShapeType.GROUP, shapes = shapes.mapNotNull(XSLFShape::toShape).toMutableList())
     } else if (this is XSLFPictureShape) {
@@ -303,10 +303,8 @@ fun XSLFTextRun.isLineBreak(): Boolean {
 }
 
 fun XSLFTextRun.isSimilar(other: XSLFTextRun): Boolean {
-    var ret = isBold == other.isBold && isItalic == other.isItalic && isStrikethrough == other.isStrikethrough &&
-            isSubscript == other.isSubscript && isSuperscript == other.isSuperscript &&
-            characterSpacing == other.characterSpacing &&
-            fieldType == other.fieldType && fontFamily == this.fontFamily && fontSize == other.fontSize
+    var ret =
+        isBold == other.isBold && isItalic == other.isItalic && isStrikethrough == other.isStrikethrough && isSubscript == other.isSubscript && isSuperscript == other.isSuperscript && characterSpacing == other.characterSpacing && fieldType == other.fieldType && fontFamily == this.fontFamily && fontSize == other.fontSize
     if (ret) {
         if (fontColor is PaintStyle.SolidPaint && other.fontColor is PaintStyle.SolidPaint) {
             val solidColor = (fontColor as PaintStyle.SolidPaint).solidColor

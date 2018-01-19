@@ -10,11 +10,9 @@ import java.io.IOException
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.regex.Pattern
-import org.apache.poi.hssf.usermodel.HSSFSheet
 
 
 private val log = LoggerFactory.getLogger(Excel::class.java)
@@ -117,22 +115,22 @@ private fun normalizeNumericString(numeric: Double): String {
 
 fun Cell.toStr(): String {
     when (cellType) {
-        Cell.CELL_TYPE_STRING -> return stringCellValue
+        Cell.CELL_TYPE_STRING  -> return stringCellValue
         Cell.CELL_TYPE_NUMERIC -> return normalizeNumericString(numericCellValue)
         Cell.CELL_TYPE_BOOLEAN -> return booleanCellValue.toString()
-        Cell.CELL_TYPE_BLANK -> return ""
+        Cell.CELL_TYPE_BLANK   -> return ""
         Cell.CELL_TYPE_FORMULA -> {
             val cellValue = getFormulaCellValue(this)
             when (cellValue.cellType) {
-                Cell.CELL_TYPE_STRING -> return cellValue.stringValue
+                Cell.CELL_TYPE_STRING  -> return cellValue.stringValue
                 Cell.CELL_TYPE_NUMERIC -> return normalizeNumericString(cellValue.numberValue)
                 Cell.CELL_TYPE_BOOLEAN -> return cellValue.booleanValue.toString()
-                Cell.CELL_TYPE_BLANK -> return ""
-                else -> throw IllegalAccessException("cellはStringに変換できません")
+                Cell.CELL_TYPE_BLANK   -> return ""
+                else                   -> throw IllegalAccessException("cellはStringに変換できません")
             }
 
         }
-        else -> {
+        else                   -> {
             log.warn("Can't parse '$this' to String, return empty.")
             return ""
         }
@@ -150,17 +148,17 @@ fun Cell.toInt(): Int {
     }
 
     when (cellType) {
-        Cell.CELL_TYPE_STRING -> return stringToInt(stringCellValue)
+        Cell.CELL_TYPE_STRING  -> return stringToInt(stringCellValue)
         Cell.CELL_TYPE_NUMERIC -> return numericCellValue.toInt()
         Cell.CELL_TYPE_FORMULA -> {
             val cellValue = getFormulaCellValue(this)
             when (cellValue.cellType) {
-                Cell.CELL_TYPE_STRING -> return stringToInt(cellValue.stringValue)
+                Cell.CELL_TYPE_STRING  -> return stringToInt(cellValue.stringValue)
                 Cell.CELL_TYPE_NUMERIC -> return cellValue.numberValue.toInt()
-                else -> throw IllegalAccessException("cellはIntに変換できません")
+                else                   -> throw IllegalAccessException("cellはIntに変換できません")
             }
         }
-        else -> {
+        else                   -> {
             log.warn("Can't parse '$this' to Int, return 0")
             return 0
         }
@@ -178,20 +176,20 @@ fun Cell.toDouble(): Double {
     }
 
     when (cellType) {
-        Cell.CELL_TYPE_STRING -> return stringToDouble(stringCellValue)
+        Cell.CELL_TYPE_STRING  -> return stringToDouble(stringCellValue)
         Cell.CELL_TYPE_NUMERIC -> return numericCellValue.toDouble()
         Cell.CELL_TYPE_FORMULA -> {
             val cellValue = getFormulaCellValue(this)
             when (cellValue.cellType) {
-                Cell.CELL_TYPE_STRING -> return stringToDouble(cellValue.stringValue)
+                Cell.CELL_TYPE_STRING  -> return stringToDouble(cellValue.stringValue)
                 Cell.CELL_TYPE_NUMERIC -> return cellValue.numberValue.toDouble()
-                else -> {
+                else                   -> {
                     log.warn("Can't parse '$this' to Double, return 0.0")
                     return 0.0
                 }
             }
         }
-        else -> {
+        else                   -> {
             log.warn("Can't parse '$this' to Double, return 0.0")
             return 0.0
         }
@@ -205,13 +203,13 @@ fun Cell.toBoolean(): Boolean {
             val cellValue = getFormulaCellValue(this)
             when (cellValue.cellType) {
                 Cell.CELL_TYPE_BOOLEAN -> return cellValue.booleanValue
-                else -> {
+                else                   -> {
                     log.warn("Can't parse '$this' to Boolean, return false")
                     return false
                 }
             }
         }
-        else -> {
+        else                   -> {
             log.warn("Can't parse '$this' to Boolean, return false")
             return false
         }
@@ -226,16 +224,16 @@ fun Cell.toDate(): Date {
                 val cellValue = getFormulaCellValue(this)
                 when (cellValue.cellType) {
                     Cell.CELL_TYPE_NUMERIC -> return dateCellValue
-                    else -> {
+                    else                   -> {
                         log.warn("Can't parse '$this' to Date, return EMPTY")
                         return Excel.EMPTY_DATE
                     }
                 }
             }
-            Cell.CELL_TYPE_STRING -> {
+            Cell.CELL_TYPE_STRING  -> {
                 return dateParser.parse(this.stringCellValue)
             }
-            else -> return Excel.EMPTY_DATE
+            else                   -> return Excel.EMPTY_DATE
         }
     } catch (e: Exception) {
         log.warn("Can't parse '$this' to Date, return EMPTY.")
@@ -286,12 +284,12 @@ operator fun Sheet.set(x: Int, y: Int, value: Any) {
 
 private fun Cell.setValue(value: Any) {
     when (value) {
-        is String -> setCellValue(value)
-        is Int -> setCellValue(value.toDouble())
-        is Double -> setCellValue(value)
-        is Date -> setCellValue(value)
+        is String  -> setCellValue(value)
+        is Int     -> setCellValue(value.toDouble())
+        is Double  -> setCellValue(value)
+        is Date    -> setCellValue(value)
         is Boolean -> setCellValue(value)
-        else -> throw IllegalArgumentException("Can't set '$value'")
+        else       -> throw IllegalArgumentException("Can't set '$value'")
     }
 }
 

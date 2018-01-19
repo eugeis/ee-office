@@ -4,7 +4,8 @@ import ee.translate.pptx.isColor
 import ee.translate.pptx.translatePowerPoints
 import javafx.application.Platform
 import org.apache.poi.sl.usermodel.TextRun
-import tornadofx.*
+import tornadofx.Controller
+import tornadofx.FX
 
 class TranslateController : Controller() {
     val dashboard: Dashboard by inject()
@@ -55,11 +56,9 @@ class TranslateController : Controller() {
             removeTextRun = { isColor(red, green, blue) }
         }
 
-        translatePowerPoints(dashboard.sourceDir.text, dashboard.targetDir.text,
-                dashboard.dictionaryGlobal.text, dashboard.dictionary.text,
-                dashboard.languageFrom.text, dashboard.languageTo.text,
-                dashboard.statusUpdater, dashboard.removeUnusedFromGlobal.isSelected,
-                removeTextRun)
+        translatePowerPoints(dashboard.sourceDir.text, dashboard.targetDir.text, dashboard.dictionaryGlobal.text,
+            dashboard.dictionary.text, dashboard.languageFrom.text, dashboard.languageTo.text, dashboard.statusUpdater,
+            dashboard.removeUnusedFromGlobal.isSelected, removeTextRun)
     }
 
     fun storeSettings() {

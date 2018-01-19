@@ -15,8 +15,8 @@ import java.nio.file.Paths
 
 
 fun main(args: Array<String>) {
-    val path = Paths.get(if (isWindows) "G:/Ekklesiologie/Seminar" else
-        "/Users/ee/Documents/Bibelschule/Ekklesiologie/Seminar")
+    val path = Paths.get(
+        if (isWindows) "G:/Ekklesiologie/Seminar" else "/Users/ee/Documents/Bibelschule/Ekklesiologie/Seminar")
 
     val target = path.resolve("reveal")
 
