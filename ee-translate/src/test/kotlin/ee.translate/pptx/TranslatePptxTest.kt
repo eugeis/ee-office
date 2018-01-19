@@ -6,5 +6,5 @@ fun main(args: Array<String>) {
 
     translatePowerPoints(sourceDir, targetDir,
             "$targetDir/dictionaryGlobal.xlsx", "$targetDir/dictionary.xlsx",
-            "ru", "de", {}, { isColor(red = 255.0) })
+            "ru", "de", {}, true, { isColor(red = 255) })
 }

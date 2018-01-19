@@ -16,7 +16,7 @@ import kotlin.collections.set
 
 private val log = LoggerFactory.getLogger("Trans")
 
-data class Translation(val text: String, var index: Int = 0,
+data class Translation(val key: String, val text: String, var index: Int = 0,
                        var contexts: MutableSet<String> = mutableSetOf(),
                        var documents: MutableMap<String, Int> = mutableMapOf(),
                        var pages: MutableSet<String> = mutableSetOf())
@@ -44,7 +44,8 @@ abstract class AbstractMutableTranslationService(private val translationService:
     override fun translate(text: String, context: String, document: String, page: Int, useOriginalAsDefault: Boolean): String {
         var translation = translated[text]
         if (translation == null) {
-            translation = Translation(translationService.translate(text, context, document, page, useOriginalAsDefault), index++)
+            translation = Translation(text,
+                    translationService.translate(text, context, document, page, useOriginalAsDefault), index++)
             translation.contexts.add(context)
             translation.documents[document] = 1
             translation.pages.add("1:$page")
@@ -88,19 +89,20 @@ class TranslationServiceXslx(private val filePath: Path, translationService: Tra
             val currentWorkbook = Excel.open(filePath)
             val sheet = currentWorkbook.getSheetAt(0)
             sheet.forEach { row ->
-                val ret = Translation(
-                        row.getCell(1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue, index++,
-                        row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet(),
-                        mutableMapOf(),
-                        row.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet())
+                val key = row.getCell(0, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue
+                val translation = row.getCell(1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue
+                val contexts = row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet()
+                val documents = row.getCell(3, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }
+                val pages = row.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet()
+                val ret = Translation(key, translation, index++, contexts, mutableMapOf(), pages)
 
-                row.getCell(3, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.forEach {
-                            val documentNumber = it.split(documentNumberSeparator)
-                            if (documentNumber.size >= 2) {
-                                ret.documents.put(documentNumber[0], documentNumber[1].toInt())
-                            }
-                        }
-                translated[row.getCell(0, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue] = ret
+                documents.forEach {
+                    val documentNumber = it.split(documentNumberSeparator)
+                    if (documentNumber.size >= 2) {
+                        ret.documents[documentNumber[0]] = documentNumber[1].toInt()
+                    }
+                }
+                translated[key] = ret
             }
             workbook = currentWorkbook
         }
@@ -123,7 +125,9 @@ class TranslationServiceXslx(private val filePath: Path, translationService: Tra
                 row.cell(0, it.key)
                 row.cell(1, it.value.text)
                 row.cell(2, it.value.contexts.joinToString(separator))
-                row.cell(3, it.value.documents.map { "${it.key}$documentNumberSeparator${it.value}" }.joinToString(separator))
+                row.cell(3, it.value.documents.map {
+                    "${it.key}$documentNumberSeparator${it.value}"
+                }.joinToString(separator))
                 row.cell(4, it.value.pages.joinToString(separator))
                 indexes.add(it.value.index)
             }
