@@ -25,8 +25,9 @@ private val REMOVE_FULL = "REMOVE_FULL"
 private val prefix = """(^[ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
 private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
 
-fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File, statusUpdater: (String) -> Unit,
-    removeTextRun: TextRun.() -> Boolean = { false }) {
+fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File,
+                             statusUpdater: (String) -> Unit,
+                             removeTextRun: TextRun.() -> Boolean = { false }) {
     val fileName: String = targetFile.nameWithoutExtension
     log.info("translate to {}", fileName)
     slides.forEach { slide ->
@@ -34,8 +35,13 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
         log.info("slide: {}", slideNumber)
         statusUpdater("$slideNumber")
 
-        slide.shapes.filterIsInstance(TextShape::class.java).forEach { shape ->
-            shape.getTextParagraphs().filterIsInstance(XSLFTextParagraph::class.java).forEach { paragraph ->
+        val textShapes = slide.shapes.filterIsInstance(TextShape::class.java)
+
+        val bigContext = textShapes.joinToString("\n") { it.getText() }
+
+        textShapes.forEach { shape ->
+            val textParagraphs = shape.getTextParagraphs().filterIsInstance(XSLFTextParagraph::class.java)
+            textParagraphs.forEach { paragraph ->
 
                 val rawParagraph = paragraph.text.replace("\n", " ")
                 if (rawParagraph.isNotEmpty()) {
@@ -71,8 +77,8 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
                                 }
 
                                 if (text.isNotEmpty()) {
-                                    val translatedText =
-                                        translationService.translate(text, rawParagraph, fileName, slideNumber, false)
+                                    val translatedText = translationService.translate(text,
+                                            rawParagraph, fileName, slideNumber, bigContext, false)
                                     log.info("{}={} in '{}'", "$pref$text$suf", translatedText, rawParagraph)
                                     if (translatedText.isNotEmpty() && translatedText != text) {
                                         try {
@@ -102,29 +108,35 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
 }
 
 fun translatePowerPoints(sourceDir: String, targetDir: String, dictionaryGlobal: String, dictionary: String,
-    languageFrom: String, languageTo: String, statusUpdater: (String) -> Unit, removeUnusedFromGlobal: Boolean = false,
-    removeTextRun: TextRun.() -> Boolean = { false }) {
+                         languageFrom: String, languageTo: String,
+                         statusUpdater: (String) -> Unit,
+                         removeUnusedFromGlobal: Boolean = false, removeTextRun: TextRun.() -> Boolean = { false }) {
     val target = Paths.get(targetDir)
 
     val translationServiceRemote = TranslationServiceEmptyOrDefault
     val translationServiceGlobal = TranslationServiceXslx(target.resolve(dictionaryGlobal),
-        TranslateServiceNoNeedTranslation(translationServiceRemote))
-    val translationService = TranslationServiceXslx(target.resolve(dictionary), translationServiceGlobal)
+            TranslateServiceNoNeedTranslation(translationServiceRemote))
+    var translationService = translationServiceGlobal
+    if (dictionary.isNotEmpty()) {
+        translationService = TranslationServiceXslx(target.resolve(dictionary), translationServiceGlobal)
+    }
 
     Paths.get(sourceDir).toFile().listFiles { file -> file.name.endsWith(".pptx", true) }.forEach { file ->
         try {
             val slideShow = PowerPoint.open(file)
             slideShow.translateTo(translationService, target.resolve(file.name).toFile(),
-                { statusUpdater("Translate ${file.name}: $it") }, removeTextRun)
+                    { statusUpdater("Translate ${file.name}: $it") }, removeTextRun)
         } catch (e: Exception) {
             log.warn("Can't translate '{}' because of '{}'", file, e)
         }
     }
-    if (removeUnusedFromGlobal) {
-        translationServiceGlobal.removeOtherKeys(translationService.translated.keys)
+    if (translationServiceGlobal != translationService) {
+        if (removeUnusedFromGlobal) {
+            translationServiceGlobal.removeOtherKeys(translationService.translated.keys)
+        }
+        translationService.close()
     }
 
-    translationService.close()
     translationServiceGlobal.close()
 }
 
