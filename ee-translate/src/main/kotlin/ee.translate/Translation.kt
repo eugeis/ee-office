@@ -6,8 +6,10 @@ import com.google.cloud.translate.TranslateOptions
 import ee.common.ext.exists
 import ee.excel.Excel
 import ee.excel.cell
+import org.apache.poi.sl.usermodel.TextRun
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Workbook
+import org.apache.poi.xslf.usermodel.XMLSlideShow
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.lang.Double.parseDouble
@@ -18,8 +20,7 @@ import kotlin.collections.set
 
 private val log = LoggerFactory.getLogger("Trans")
 
-data class Translation(val key: String, val text: String, var index: Int = 0,
-                       var bigContext: String = "",
+data class Translation(val key: String, val text: String, var index: Int = 0, var bigContext: String = "",
                        var contexts: MutableSet<String> = mutableSetOf(),
                        var documents: MutableMap<String, Int> = mutableMapOf(),
                        var pages: MutableSet<String> = mutableSetOf())
@@ -43,7 +44,7 @@ object TranslationServiceEmptyOrDefault : TranslationService {
 
 abstract class AbstractMutableTranslationService(private val translationService: TranslationService,
                                                  val translated: MutableMap<String, Translation> = mutableMapOf()) :
-        TranslationService {
+    TranslationService {
     var index: Int = 0
 
     override fun translate(text: String, context: String, document: String, page: Int, bigContext: String,
@@ -51,7 +52,8 @@ abstract class AbstractMutableTranslationService(private val translationService:
         var translation = translated[text]
         if (translation == null) {
             translation = Translation(text,
-                    translationService.translate(text, context, document, page, bigContext, useOriginalAsDefault), index++, bigContext)
+                translationService.translate(text, context, document, page, bigContext, useOriginalAsDefault), index++,
+                bigContext)
             translation.contexts.add(context)
             translation.documents[document] = 1
             translation.pages.add("1:$page")
@@ -88,7 +90,7 @@ abstract class AbstractMutableTranslationService(private val translationService:
 
 class TranslationServiceXslx(private val filePath: Path, translationService: TranslationService,
                              translated: MutableMap<String, Translation> = mutableMapOf()) :
-        AbstractMutableTranslationService(translationService, translated) {
+    AbstractMutableTranslationService(translationService, translated) {
     private val separator: String = "≤"
     private val documentNumberSeparator: String = ":"
     private var workbook: Workbook? = null
@@ -100,9 +102,14 @@ class TranslationServiceXslx(private val filePath: Path, translationService: Tra
             sheet.forEach { row ->
                 val key = row.getCell(0, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue
                 val translation = row.getCell(1, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue
-                val contexts = row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet()
-                val documents = row.getCell(3, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }
-                val pages = row.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator).filter { it.trim().isNotEmpty() }.toMutableSet()
+                val contexts =
+                    row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator)
+                        .filter { it.trim().isNotEmpty() }.toMutableSet()
+                val documents =
+                    row.getCell(3, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator)
+                        .filter { it.trim().isNotEmpty() }
+                val pages = row.getCell(4, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue.split(separator)
+                    .filter { it.trim().isNotEmpty() }.toMutableSet()
                 val bigContext = row.getCell(5, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK).stringCellValue
                 val ret = Translation(key, translation, index++, bigContext, contexts, mutableMapOf(), pages)
 
@@ -160,7 +167,8 @@ class TranslationServiceXslx(private val filePath: Path, translationService: Tra
 }
 
 class TranslateServiceNoNeedTranslation(private val translationService: TranslationService) : TranslationService {
-    override fun translate(text: String, context: String, document: String, page: Int, bigContext: String, useOriginalAsDefault: Boolean): String {
+    override fun translate(text: String, context: String, document: String, page: Int, bigContext: String,
+                           useOriginalAsDefault: Boolean): String {
         return try {
             parseDouble(text)
             text
@@ -219,4 +227,40 @@ fun collectFilesByExtension(sourceList: String, fileExtension: String, delimiter
         }
     }
     return files
+}
+
+interface FileTranslator<out TextContainer : Any> {
+    fun translate(file: File, translationService: TranslationService, targetFile: File, statusUpdater: (String) -> Unit,
+                  removeTextRun: TextContainer.() -> Boolean = { false })
+}
+
+
+fun <TextContainer : Any> translateFiles(sourceList: List<File>, targetDir: String, dictionaryGlobal: String,
+                                         dictionary: String, languageFrom: String, languageTo: String,
+                                         statusUpdater: (String) -> Unit, removeUnusedFromGlobal: Boolean = false,
+                                         removeTextRun: TextContainer.() -> Boolean = { false },
+                                         translator: FileTranslator<TextContainer>) {
+    val target = Paths.get(targetDir)
+
+    val translationServiceRemote = TranslationServiceEmptyOrDefault
+    val translationServiceGlobal = TranslationServiceXslx(target.resolve(dictionaryGlobal),
+        TranslateServiceNoNeedTranslation(translationServiceRemote))
+    var translationService = translationServiceGlobal
+
+    if (dictionary.isNotEmpty()) {
+        translationService = TranslationServiceXslx(target.resolve(dictionary), translationServiceGlobal)
+    }
+
+    sourceList.forEach { file ->
+        translator.translate(file, translationService, target.resolve(file.name).toFile(),
+            { statusUpdater("Translate ${file.name}: $it") }, removeTextRun)
+    }
+    if (translationServiceGlobal != translationService) {
+        if (removeUnusedFromGlobal) {
+            translationServiceGlobal.removeOtherKeys(translationService.translated.keys)
+        }
+        translationService.close()
+    }
+
+    translationServiceGlobal.close()
 }

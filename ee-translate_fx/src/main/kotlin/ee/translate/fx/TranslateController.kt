@@ -1,8 +1,9 @@
 package ee.translate.fx
 
-import ee.translate.pptx.collectPowerPointFiles
-import ee.translate.pptx.isColor
-import ee.translate.pptx.translatePowerPoints
+import ee.pptx.PptxFileTranslator
+import ee.pptx.collectPowerPointFiles
+import ee.pptx.isColor
+import ee.translate.translateFiles
 import javafx.application.Platform
 import org.apache.poi.sl.usermodel.TextRun
 import tornadofx.*
@@ -58,9 +59,11 @@ class TranslateController : Controller() {
 
         val files = collectPowerPointFiles(dashboard.sourceDirOrFiles.text, dashboard.delimiter)
 
-        translatePowerPoints(files, dashboard.targetDir.text, dashboard.dictionaryGlobal.text,
+        val fileTranslator = PptxFileTranslator()
+
+        translateFiles(files, dashboard.targetDir.text, dashboard.dictionaryGlobal.text,
             dashboard.dictionary.text, dashboard.languageFrom.text, dashboard.languageTo.text, dashboard.statusUpdater,
-            dashboard.removeUnusedFromGlobal.isSelected, removeTextRun)
+            dashboard.removeUnusedFromGlobal.isSelected, removeTextRun, fileTranslator)
     }
 
     fun storeSettings() {

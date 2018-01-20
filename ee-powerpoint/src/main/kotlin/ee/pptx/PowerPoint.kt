@@ -1,15 +1,13 @@
 package ee.pptx
 
-import ee.common.ext.ext
-import ee.common.ext.ifElse
-import ee.common.ext.letTraceExc
-import ee.common.ext.toKey
+import ee.common.ext.*
 import ee.slides.*
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.xslf.usermodel.*
 import org.apache.xmlbeans.XmlObject
 import org.openxmlformats.schemas.drawingml.x2006.main.CTTextField
 import org.openxmlformats.schemas.drawingml.x2006.main.CTTextLineBreak
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTextParagraph
 import org.slf4j.LoggerFactory
 import java.awt.geom.Rectangle2D
 import java.io.File
@@ -183,6 +181,19 @@ fun Sequence<File>.toPresentation(name: String): Presentation {
 }
 
 fun File.toPresentation(): Presentation? = letTraceExc { PowerPoint.open(this).toPresentation(nameWithoutExtension) }
+
+class TextRunGroups(val paragraph: XSLFTextParagraph, val groups: MutableList<TextRunGroup> = mutableListOf()) {
+    init {
+        var currentTextRunGroup = groups.addReturn(TextRunGroup(paragraph))
+
+        paragraph.textRuns.forEach {
+            if (!currentTextRunGroup.addIfSimilar(it)) {
+                currentTextRunGroup = groups.addReturn(TextRunGroup(paragraph))
+                currentTextRunGroup.addIfSimilar(it)
+            }
+        }
+    }
+}
 
 class TextRunGroup(val paragraph: XSLFTextParagraph) {
     val textRuns: MutableList<XSLFTextRun> = mutableListOf()
