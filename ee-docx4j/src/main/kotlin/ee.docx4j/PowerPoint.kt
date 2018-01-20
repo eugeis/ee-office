@@ -1,12 +1,9 @@
 package ee.docx4j
 
 import ee.common.ext.addReturn
-import org.docx4j.dml.CTRegularTextRun
-import org.docx4j.dml.CTTextCharacterProperties
-import org.docx4j.dml.CTTextLineBreak
-import org.docx4j.dml.CTTextParagraph
+import org.apache.xpath.operations.Bool
+import org.docx4j.dml.*
 import org.docx4j.openpackaging.packages.PresentationMLPackage
-import org.omg.CORBA.Object
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Paths
@@ -29,20 +26,34 @@ class PowerPoint {
 }
 
 
-class TextRunGroups(val paragraph: CTTextParagraph, val groups: MutableList<TextRunGroup> = mutableListOf()) {
+class TextGroups(val paragraph: CTTextParagraph, val items: MutableList<TextGroup> = mutableListOf(),
+    private var text: String? = null) {
     init {
-        var currentTextRunGroup = groups.addReturn(TextRunGroup(paragraph))
+        if (paragraph.egTextRun.isNotEmpty()) {
+            var currentTextRunGroup = items.addReturn(TextGroup(paragraph))
 
-        paragraph.egTextRun.forEach {
-            if (!currentTextRunGroup.addIfSimilar(it)) {
-                currentTextRunGroup = groups.addReturn(TextRunGroup(paragraph))
-                currentTextRunGroup.addIfSimilar(it)
+            paragraph.egTextRun.forEach {
+                if (!currentTextRunGroup.addIfSimilar(it)) {
+                    currentTextRunGroup = items.addReturn(TextGroup(paragraph))
+                    currentTextRunGroup.addIfSimilar(it)
+                }
             }
         }
     }
+
+    fun text(): String {
+        if (text == null) {
+            text = items.joinToString(" ") { it.text() }
+        }
+        return text!!
+    }
+
+    fun clear() {
+        text = null
+    }
 }
 
-class TextRunGroup(val paragraph: CTTextParagraph) {
+class TextGroup(val paragraph: CTTextParagraph, private var text: String? = null) {
     val textRuns: MutableList<Any> = mutableListOf()
     val textRunsWithOutBaseTextRun: MutableList<Any> = mutableListOf()
     private var baseTextRun: CTRegularTextRun? = null
@@ -67,15 +78,18 @@ class TextRunGroup(val paragraph: CTTextParagraph) {
     }
 
     fun text(): String {
-        val out = StringBuilder()
-        for (r in textRuns) {
-            if (r.isLineBreak()) {
-                out.append(" ")
-            } else if (r is CTRegularTextRun) {
-                out.append(r.t)
+        if (text == null) {
+            val out = StringBuilder()
+            for (r in textRuns) {
+                if (r.isLineBreak()) {
+                    out.append(" ")
+                } else if (r is CTRegularTextRun) {
+                    out.append(r.t)
+                }
             }
+            text = out.toString()
         }
-        return out.toString()
+        return text!!
     }
 
     fun changeText(text: String) {
@@ -122,6 +136,7 @@ class TextRunGroup(val paragraph: CTTextParagraph) {
         textRuns.clear()
         textRunsWithOutBaseTextRun.clear()
         baseTextRun = null
+        text = null
     }
 }
 
@@ -130,18 +145,24 @@ fun Any.isLineBreak(): Boolean {
 }
 
 fun CTTextCharacterProperties.isSimilar(other: CTTextCharacterProperties): Boolean {
-    var ret =
-        isB == other.isB && isI == other.isI && isErr == other.isErr && isDirty == other.isDirty && isKumimoji == other.isKumimoji && cs == other.cs //&& fieldType == other.f && fontFamily == this.fontFamily && fontSize == other.fontSize
-    if (ret) {
-        /*
-        if (fontColor is PaintStyle.SolidPaint && other.fontColor is PaintStyle.SolidPaint) {
-            val solidColor = (fontColor as PaintStyle.SolidPaint).solidColor
-            val otherSolidColor = (other.fontColor as PaintStyle.SolidPaint).solidColor
-            ret = solidColor.color == otherSolidColor.color
-        } else {
-            ret = fontColor == other.fontColor
-        }
-        */
-    }
+    var ret = this.ln == other.ln && this.noFill == other.noFill && this.solidFill.isSimilar(other.solidFill) &&
+            this.gradFill == other.gradFill && this.blipFill == other.blipFill && this.pattFill == other.pattFill &&
+            this.grpFill == other.grpFill && this.effectLst == other.effectLst && this.effectDag == other.effectDag &&
+            this.highlight == other.highlight && this.uLnTx == other.uLnTx && this.uLn == other.uLn &&
+            this.uFillTx == other.uFillTx && this.uFill == other.uFill && this.latin == other.latin &&
+            this.ea == other.ea && this.cs == other.cs && this.sym == other.sym &&
+            this.hlinkClick == other.hlinkClick && this.hlinkMouseOver == other.hlinkMouseOver &&
+            this.extLst == other.extLst && this.isKumimoji == other.isKumimoji &&
+            this.altLang == other.altLang && this.sz == other.sz && this.isB == other.isB && this.isI == other.isI &&
+            this.u == other.u && this.strike == other.strike && this.kern == other.kern && this.cap == other.cap &&
+            this.spc == other.spc && this.isNormalizeH == other.isNormalizeH && this.baseline == other.baseline &&
+            this.isNoProof == other.isNoProof && this.isDirty == other.isDirty &&
+            this.smtId == other.smtId && this.bmk == other.bmk
+    //&& this.isErr == other.isErr && this.isSmtClean == other.isSmtClean && this.lang == other.lang
+    return ret
+}
+
+fun CTSolidColorFillProperties?.isSimilar(other: CTSolidColorFillProperties?): Boolean {
+    val ret = this == other || this?.srgbClr?.`val`==other?.srgbClr?.`val`
     return ret
 }

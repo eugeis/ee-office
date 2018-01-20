@@ -1,11 +1,11 @@
 package ee.translate.fx
 
-import ee.pptx.PptxFileTranslator
-import ee.pptx.collectPowerPointFiles
-import ee.pptx.isColor
+import ee.common.ext.collectFilesByExtension
+import ee.docx4j.Docx4jPptxFileTranslator
+import ee.docx4j.isColor
 import ee.translate.translateFiles
 import javafx.application.Platform
-import org.apache.poi.sl.usermodel.TextRun
+import org.docx4j.dml.CTRegularTextRun
 import tornadofx.*
 
 class TranslateController : Controller() {
@@ -48,21 +48,21 @@ class TranslateController : Controller() {
     }
 
     fun translate() {
-        var removeTextRun: TextRun.() -> Boolean = { false }
+        var removeTextRun: CTRegularTextRun.() -> Boolean = { false }
         if (dashboard.removeByColor.isSelected) {
             val color = dashboard.colorToRemove.value
             val red = (color.red * 255).toInt()
             val green = (color.green * 255).toInt()
             val blue = (color.blue * 255).toInt()
-            removeTextRun = { isColor(red, green, blue) }
+            removeTextRun = { rPr.isColor("FF0000") }
         }
 
-        val files = collectPowerPointFiles(dashboard.sourceDirOrFiles.text, dashboard.delimiter)
+        val files = collectFilesByExtension(dashboard.sourceDirOrFiles.text, ".pptx", dashboard.delimiter)
 
-        val fileTranslator = PptxFileTranslator()
+        val fileTranslator = Docx4jPptxFileTranslator()
 
-        translateFiles(files, dashboard.targetDir.text, dashboard.dictionaryGlobal.text,
-            dashboard.dictionary.text, dashboard.languageFrom.text, dashboard.languageTo.text, dashboard.statusUpdater,
+        translateFiles(files, dashboard.targetDir.text, dashboard.dictionaryGlobal.text, dashboard.dictionary.text,
+            dashboard.languageFrom.text, dashboard.languageTo.text, dashboard.statusUpdater,
             dashboard.removeUnusedFromGlobal.isSelected, removeTextRun, fileTranslator)
     }
 

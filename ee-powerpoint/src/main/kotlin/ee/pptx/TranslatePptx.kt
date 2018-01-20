@@ -2,7 +2,7 @@ package ee.pptx
 
 import ee.translate.FileTranslator
 import ee.translate.TranslationService
-import ee.translate.collectFilesByExtension
+import ee.translate.translate
 import org.apache.poi.sl.usermodel.PaintStyle
 import org.apache.poi.sl.usermodel.TextRun
 import org.apache.poi.sl.usermodel.TextShape
@@ -14,11 +14,6 @@ import java.io.FileOutputStream
 
 private val log = LoggerFactory.getLogger("TranslatePptx")
 
-private val REMOVE = "REMOVE"
-private val REMOVE_FULL = "REMOVE_FULL"
-
-private val prefix = """(^[ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
-private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
 
 fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile: File, statusUpdater: (String) -> Unit,
                              removeTextRun: TextRun.() -> Boolean = { false }) {
@@ -45,44 +40,11 @@ fun XMLSlideShow.translateTo(translationService: TranslationService, targetFile:
 
                     textRunTranslationGroups.groups.filterNot { it.removeAllFromParagraph(removeTextRun) }
                         .forEach { group ->
-                            val raw = group.text()
-                            if (raw.trim().isNotEmpty()) {
-                                var pref = ""
-                                var suf = ""
-                                var text = raw
-                                val prefixAndLastPart = prefix.find(raw)
-                                if (prefixAndLastPart != null) {
-                                    pref = prefixAndLastPart.groups[1]!!.value
-                                    text = text.removePrefix(pref)
-                                }
-
-                                if (text.isNotEmpty()) {
-                                    val suffixGroups = suffix.matchEntire(text)
-                                    if (suffixGroups != null) {
-                                        text = suffixGroups.groups[1]!!.value
-                                        suf = suffixGroups.groups[2]!!.value
-                                    }
-
-                                    if (text.isNotEmpty()) {
-                                        val translatedText =
-                                            translationService.translate(text, rawParagraph, fileName, slideNumber,
-                                                bigContext, false)
-                                        log.info("{}={} in '{}'", "$pref$text$suf", translatedText, rawParagraph)
-                                        if (translatedText.isNotEmpty() && translatedText != text) {
-                                            try {
-                                                var translatedFull = "$pref$translatedText$suf"
-                                                if (translatedText == REMOVE_FULL) {
-                                                    translatedFull = ""
-                                                } else if (translatedText == REMOVE) {
-                                                    translatedFull = "$pref$suf"
-                                                }
-                                                group.changeText(translatedFull)
-                                            } catch (e: Exception) {
-                                                log.warn("{}", e)
-                                            }
-                                        }
-                                    }
-                                }
+                            val translated =
+                                translate(group.text(), translationService, rawParagraph, fileName, slideNumber,
+                                    bigContext)
+                            if (translated != null) {
+                                group.changeText(translated)
                             }
                         }
                 }
@@ -116,6 +78,3 @@ fun TextRun.isColor(red: Int = 0, green: Int = 0, blue: Int = 0): Boolean {
     }
     return ret
 }
-
-fun collectPowerPointFiles(sourceList: String, delimiter: String = ";") =
-    collectFilesByExtension(sourceList, ".pptx", delimiter)

@@ -6,10 +6,8 @@ import com.google.cloud.translate.TranslateOptions
 import ee.common.ext.exists
 import ee.excel.Excel
 import ee.excel.cell
-import org.apache.poi.sl.usermodel.TextRun
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Workbook
-import org.apache.poi.xslf.usermodel.XMLSlideShow
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.lang.Double.parseDouble
@@ -21,18 +19,18 @@ import kotlin.collections.set
 private val log = LoggerFactory.getLogger("Trans")
 
 data class Translation(val key: String, val text: String, var index: Int = 0, var bigContext: String = "",
-                       var contexts: MutableSet<String> = mutableSetOf(),
-                       var documents: MutableMap<String, Int> = mutableMapOf(),
-                       var pages: MutableSet<String> = mutableSetOf())
+    var contexts: MutableSet<String> = mutableSetOf(),
+    var documents: MutableMap<String, Int> = mutableMapOf(),
+    var pages: MutableSet<String> = mutableSetOf())
 
 interface TranslationService {
     fun translate(text: String, context: String = "", document: String = "", page: Int = 0, bigContext: String = "",
-                  useOriginalAsDefault: Boolean = false): String
+        useOriginalAsDefault: Boolean = false): String
 }
 
 object TranslationServiceEmptyOrDefault : TranslationService {
     override fun translate(text: String, context: String, document: String, page: Int, bigContext: String,
-                           useOriginalAsDefault: Boolean): String {
+        useOriginalAsDefault: Boolean): String {
         return if (useOriginalAsDefault) {
             text
         } else {
@@ -43,12 +41,12 @@ object TranslationServiceEmptyOrDefault : TranslationService {
 
 
 abstract class AbstractMutableTranslationService(private val translationService: TranslationService,
-                                                 val translated: MutableMap<String, Translation> = mutableMapOf()) :
+    val translated: MutableMap<String, Translation> = mutableMapOf()) :
     TranslationService {
     var index: Int = 0
 
     override fun translate(text: String, context: String, document: String, page: Int, bigContext: String,
-                           useOriginalAsDefault: Boolean): String {
+        useOriginalAsDefault: Boolean): String {
         var translation = translated[text]
         if (translation == null) {
             translation = Translation(text,
@@ -89,7 +87,7 @@ abstract class AbstractMutableTranslationService(private val translationService:
 }
 
 class TranslationServiceXslx(private val filePath: Path, translationService: TranslationService,
-                             translated: MutableMap<String, Translation> = mutableMapOf()) :
+    translated: MutableMap<String, Translation> = mutableMapOf()) :
     AbstractMutableTranslationService(translationService, translated) {
     private val separator: String = "≤"
     private val documentNumberSeparator: String = ":"
@@ -168,7 +166,7 @@ class TranslationServiceXslx(private val filePath: Path, translationService: Tra
 
 class TranslateServiceNoNeedTranslation(private val translationService: TranslationService) : TranslationService {
     override fun translate(text: String, context: String, document: String, page: Int, bigContext: String,
-                           useOriginalAsDefault: Boolean): String {
+        useOriginalAsDefault: Boolean): String {
         return try {
             parseDouble(text)
             text
@@ -202,7 +200,7 @@ class TranslationServiceByGoogle : TranslationService {
     }
 
     override fun translate(text: String, context: String, document: String, page: Int, bigContext: String,
-                           useOriginalAsDefault: Boolean): String {
+        useOriginalAsDefault: Boolean): String {
         val translation = translate.translate(text, source, target)
         return translation.translatedText
     }
@@ -216,30 +214,17 @@ class TranslationServiceByGoogle : TranslationService {
     }
 }
 
-fun collectFilesByExtension(sourceList: String, fileExtension: String, delimiter: String = ";"): ArrayList<File> {
-    val files = arrayListOf<File>()
-    val fileValidator = { file: File -> file.name.endsWith(fileExtension, true) }
-    sourceList.split(delimiter).map { Paths.get(it).toFile() }.forEach {
-        if (it.isDirectory) {
-            files.addAll(it.listFiles(fileValidator))
-        } else if (fileValidator(it)) {
-            files.add(it)
-        }
-    }
-    return files
-}
-
 interface FileTranslator<out TextContainer : Any> {
     fun translate(file: File, translationService: TranslationService, targetFile: File, statusUpdater: (String) -> Unit,
-                  removeTextRun: TextContainer.() -> Boolean = { false })
+        removeTextRun: TextContainer.() -> Boolean = { false })
 }
 
 
 fun <TextContainer : Any> translateFiles(sourceList: List<File>, targetDir: String, dictionaryGlobal: String,
-                                         dictionary: String, languageFrom: String, languageTo: String,
-                                         statusUpdater: (String) -> Unit, removeUnusedFromGlobal: Boolean = false,
-                                         removeTextRun: TextContainer.() -> Boolean = { false },
-                                         translator: FileTranslator<TextContainer>) {
+    dictionary: String, languageFrom: String, languageTo: String,
+    statusUpdater: (String) -> Unit, removeUnusedFromGlobal: Boolean = false,
+    removeTextRun: TextContainer.() -> Boolean = { false },
+    translator: FileTranslator<TextContainer>) {
     val target = Paths.get(targetDir)
 
     val translationServiceRemote = TranslationServiceEmptyOrDefault
@@ -264,3 +249,54 @@ fun <TextContainer : Any> translateFiles(sourceList: List<File>, targetDir: Stri
 
     translationServiceGlobal.close()
 }
+
+
+private val REMOVE = "REMOVE"
+private val REMOVE_FULL = "REMOVE_FULL"
+
+private val prefix = """(^[ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
+private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
+
+fun translate(raw: String, translationService: TranslationService, context: String, documentName: String,
+    pageNumber: Int, bigContext: String): String? {
+    var ret: String? = null
+    if (raw.trim().isNotEmpty()) {
+        var pref = ""
+        var suf = ""
+        var text = raw
+        val prefixAndLastPart = prefix.find(raw)
+        if (prefixAndLastPart != null) {
+            pref = prefixAndLastPart.groups[1]!!.value
+            text = text.removePrefix(pref)
+        }
+
+        if (text.isNotEmpty()) {
+            val suffixGroups = suffix.matchEntire(text)
+            if (suffixGroups != null) {
+                text = suffixGroups.groups[1]!!.value
+                suf = suffixGroups.groups[2]!!.value
+            }
+
+            if (text.isNotEmpty()) {
+                val translatedText =
+                    translationService.translate(text, context, documentName, pageNumber, bigContext, false)
+                log.info("{}={} in '{}'", "$pref$text$suf", translatedText, context)
+                if (translatedText.isNotEmpty() && translatedText != text) {
+                    try {
+                        var translatedFull = "$pref$translatedText$suf"
+                        if (translatedText == REMOVE_FULL) {
+                            translatedFull = ""
+                        } else if (translatedText == REMOVE) {
+                            translatedFull = "$pref$suf"
+                        }
+                        ret = translatedFull
+                    } catch (e: Exception) {
+                        log.warn("{}", e)
+                    }
+                }
+            }
+        }
+    }
+    return ret
+}
+
