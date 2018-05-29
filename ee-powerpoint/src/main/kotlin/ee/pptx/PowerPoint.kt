@@ -74,7 +74,7 @@ fun XMLSlideShow.toTopic(name: String): Topic =
     Topic(name = name, slides = slides.mapNotNull(XSLFSlide::toSlide).toMutableList())
 
 fun XSLFSlide.toSlide(): Slide? = letTraceExc {
-    //often is title same as paragraphs of first shape, so check it out and filter it out
+    //often is title same as paragraphs of first shape, so check it out and filterSkipped it out
     var title = title.orEmpty()
     val shapes = shapes.mapNotNull(XSLFShape::toShape).toMutableList()
     if (title.isNotEmpty()) {
