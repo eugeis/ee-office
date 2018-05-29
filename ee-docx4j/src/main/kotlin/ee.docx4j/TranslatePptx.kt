@@ -8,11 +8,8 @@ import org.docx4j.dml.CTTextCharacterProperties
 import org.docx4j.dml.diagram.CTRelIds
 import org.docx4j.openpackaging.packages.PresentationMLPackage
 import org.docx4j.openpackaging.parts.DrawingML.DiagramDataPart
-import org.docx4j.openpackaging.parts.DrawingML.Drawing
 import org.docx4j.openpackaging.parts.Part
-import org.docx4j.openpackaging.parts.PartName
 import org.pptx4j.pml.CTGraphicalObjectFrame
-import org.pptx4j.pml.Pic
 import org.pptx4j.pml.Shape
 import org.slf4j.LoggerFactory
 import java.io.File
