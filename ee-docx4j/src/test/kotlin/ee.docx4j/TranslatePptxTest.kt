@@ -4,8 +4,9 @@ import ee.common.ext.collectFilesByExtension
 import ee.translate.translateFiles
 
 fun main(args: Array<String>) {
-    val sourceDir = "/Users/ee/Documents/Gemeinde/Seminare/Arts.pptx"
-    val targetDir = "/Users/ee/Documents/Bibelschule/Seminare/David/de"
+    val base = "/Users/ee/tmp"
+    val sourceDir = "$base/Arts.pptx"
+    val targetDir = "$base/de"
 
     val fileTranslator = Docx4jPptxFileTranslator()
 

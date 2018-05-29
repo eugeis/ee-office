@@ -1,8 +1,6 @@
 package ee.docx4j
 
-import ee.translate.FileTranslator
-import ee.translate.TranslationService
-import ee.translate.translate
+import ee.translate.*
 import org.docx4j.dml.CTRegularTextRun
 import org.docx4j.dml.CTTextCharacterProperties
 import org.docx4j.dml.diagram.CTRelIds
@@ -23,7 +21,7 @@ fun PresentationMLPackage.translateTo(translationService: TranslationService, ta
     val documentName: String = targetFile.nameWithoutExtension
     log.info("translate to {}", documentName)
 
-    for (i in 0 until mainPresentationPart.slideCount - 1) {
+    for (i in 0 until mainPresentationPart.slideCount) {
         val pageNumber = i + 1
         val slide = mainPresentationPart.getSlide(i)
         statusUpdater("slide $pageNumber")
@@ -41,11 +39,12 @@ fun PresentationMLPackage.translateTo(translationService: TranslationService, ta
                 }
                 is Shape -> {
                     val textGroupsList = mutableListOf<TextGroups>()
-                    shape.txBody?.p?.filter { it.egTextRun.isNotEmpty() }?.forEach { textGroupsList.add(TextGroups(it)) }
+                    shape.txBody?.p?.filter { it.egTextRun.isNotEmpty() }
+                        ?.forEach { textGroupsList.add(TextGroups(it)) }
                     textGroupsList.translate(translationService, documentName, pageNumber, removeTextRun)
                 }
                 else -> {
-                    log.info("{}", shape)
+                    log.debug("{}", shape)
                 }
             }
         }
@@ -63,7 +62,7 @@ private fun Part.translate(translationService: TranslationService, documentName:
             }
             textGroupsList.translate(translationService, documentName, pageNumber, removeTextRun)
         }
-        else -> log.info("Else: {}", this)
+        else -> log.debug("Else: {}", this)
     }
 }
 
@@ -73,7 +72,7 @@ private fun List<TextGroups>.translate(translationService: TranslationService, d
         val bigContext = joinToString("\n") { it.text() }
         forEach { textGroups ->
             val context = textGroups.text()
-            textGroups.items.filter { it.textRuns.isNotEmpty() && !it.removeAllFromParagraph(removeTextRun) }
+            textGroups.items.filter { it.textParts.isNotEmpty() && !it.removeAllFromParagraph(removeTextRun) }
                 .forEach { group ->
                     val translated =
                         translate(group.text(), translationService, context, documentName, pageNumber, bigContext)

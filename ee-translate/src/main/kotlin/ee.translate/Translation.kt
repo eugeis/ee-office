@@ -18,12 +18,18 @@ import kotlin.collections.set
 
 private val log = LoggerFactory.getLogger("Trans")
 
-data class Translation(val key: String, val text: String, var index: Int = 0, var bigContext: String = "",
+data class Translation(val key: String, var text: String, var index: Int = 0, var bigContext: String = "",
     var contexts: MutableSet<String> = mutableSetOf(),
     var documents: MutableMap<String, Int> = mutableMapOf(),
     var pages: MutableSet<String> = mutableSetOf())
 
 interface TranslationService {
+    companion object {
+        val NEW_LINE = " @NL@ "
+        val REMOVE = "REMOVE"
+        val REMOVE_FULL = "REMOVE_FULL"
+    }
+
     fun translate(text: String, context: String = "", document: String = "", page: Int = 0, bigContext: String = "",
         useOriginalAsDefault: Boolean = false): String
 }
@@ -49,13 +55,9 @@ abstract class AbstractMutableTranslationService(private val translationService:
         useOriginalAsDefault: Boolean): String {
         var translation = translated[text]
         if (translation == null) {
-            translation = Translation(text,
-                translationService.translate(text, context, document, page, bigContext, useOriginalAsDefault), index++,
-                bigContext)
-            translation.contexts.add(context)
-            translation.documents[document] = 1
-            translation.pages.add("1:$page")
-            translated[text] = translation
+            translation = put(text,
+                translationService.translate(text, context, document, page, bigContext, useOriginalAsDefault),
+                context, document, page, bigContext)
         } else {
             if (context.isNotEmpty()) {
                 translation.contexts.add(context)
@@ -83,6 +85,24 @@ abstract class AbstractMutableTranslationService(private val translationService:
             translated.remove(k)
         }
         log.info("removeOtherKeys, original size={}, toRemove={}, current={}", size, toRemove.size, translated.size)
+    }
+
+    fun put(text: String, translatedText: String, context: String, document: String, page: Int,
+        bigContext: String): Translation {
+        if(text.trim().isEmpty() || translatedText.isEmpty()) {
+            println("empty")
+        }
+        var ret = translated[text]
+        if (ret == null) {
+            ret = Translation(text, translatedText, index++, bigContext)
+            ret.contexts.add(context)
+            ret.documents[document] = 1
+            ret.pages.add("1:$page")
+            translated[text] = ret
+        } else {
+            ret.text = translatedText
+        }
+        return ret
     }
 }
 
@@ -251,11 +271,11 @@ fun <TextContainer : Any> translateFiles(sourceList: List<File>, targetDir: Stri
 }
 
 
-private val REMOVE = "REMOVE"
-private val REMOVE_FULL = "REMOVE_FULL"
-
 private val prefix = """(^[ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
 private val suffix = """(.+?)([ \d:’;.,!%&<>\n\t"/]+)""".toRegex()
+
+//private val prefix = """(^[ ]+)""".toRegex()
+//private val suffix = """(.+?)([ \n\t]+)""".toRegex()
 
 fun translate(raw: String, translationService: TranslationService, context: String, documentName: String,
     pageNumber: Int, bigContext: String): String? {
@@ -284,9 +304,9 @@ fun translate(raw: String, translationService: TranslationService, context: Stri
                 if (translatedText.isNotEmpty() && translatedText != text) {
                     try {
                         var translatedFull = "$pref$translatedText$suf"
-                        if (translatedText == REMOVE_FULL) {
+                        if (translatedText == TranslationService.REMOVE_FULL) {
                             translatedFull = ""
-                        } else if (translatedText == REMOVE) {
+                        } else if (translatedText == TranslationService.REMOVE) {
                             translatedFull = "$pref$suf"
                         }
                         ret = translatedFull

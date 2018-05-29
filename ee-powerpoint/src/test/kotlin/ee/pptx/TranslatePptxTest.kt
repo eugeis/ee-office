@@ -5,7 +5,7 @@ import ee.translate.translateFiles
 
 fun main(args: Array<String>) {
     val sourceDir = "/Users/ee/Documents/Gemeinde/Seminare/Arts.pptx"
-    val targetDir = "/Users/ee/Documents/Bibelschule/Seminare/David/de"
+    val targetDir = "/Users/ee/Documents/Gemeinde/Seminare//de"
 
     val fileTranslator = PptxFileTranslator()
 
