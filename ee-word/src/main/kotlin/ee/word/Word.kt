@@ -18,7 +18,7 @@ class Word {
 
     companion object {
         @JvmStatic
-        fun open(fileName: String): XWPFDocument {
+        fun isOpen(fileName: String): XWPFDocument {
             return XWPFDocument(FileInputStream(Paths.get(fileName).toFile()))
         }
 

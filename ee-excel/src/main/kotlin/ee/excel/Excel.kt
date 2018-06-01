@@ -24,7 +24,7 @@ class Excel {
     companion object {
         @JvmStatic
         fun open(filePath: Path): Workbook {
-            log.info("open '{}'", filePath)
+            log.info("isOpen '{}'", filePath)
             if (filePath.exists()) {
                 return WorkbookFactory.create(FileInputStream(filePath.toFile()))
             } else {
