@@ -9,6 +9,7 @@ fun main(args: Array<String>) {
 
     val fileTranslator = PptxFileTranslator()
 
-    translateFiles(collectFilesByExtension(sourceDir, ".pptx"), targetDir, "/Users/ee/Google Drive/Gemeinde/Übersetzung/dictionary_global.xlsx",
-        "$targetDir/dictionary.xlsx", "ru", "de", {}, true, { isColor(red = 255) }, fileTranslator)
+    translateFiles(collectFilesByExtension(sourceDir, ".pptx"), targetDir,
+            "/Users/ee/Google Drive/Gemeinde/Übersetzung/dictionary_global.xlsx",
+            "$targetDir/dictionary.xlsx", "ru", "de", {}, true, { isColor(red = 255) }, fileTranslator)
 }
