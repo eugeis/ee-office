@@ -17,3 +17,10 @@ gradle-app.setting
 /.idea/
 /**/*.iml
 /build.gradle
+/ee-docx4j/out/
+/ee-excel/out/production/classes/
+/ee-msaccess/out/
+/ee-powerpoint/out/
+/ee-translate/out/
+/ee-translate_fx/out/production/classes/
+/ee-word/out/
